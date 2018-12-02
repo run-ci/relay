@@ -26,7 +26,7 @@ func init() {
 // Server is a net/http.Server with dependencies like
 // the database connection.
 type Server struct {
-	st     store.GitRepoStore
+	st     store.RelayStore
 	pollch chan<- []byte
 
 	*http.Server
@@ -34,7 +34,7 @@ type Server struct {
 
 // NewServer returns a Server with a reference to `st`, listening
 // on `addr`.
-func NewServer(addr string, pollch chan<- []byte, st store.GitRepoStore) *Server {
+func NewServer(addr string, pollch chan<- []byte, st store.RelayStore) *Server {
 	srv := &Server{
 		Server: &http.Server{
 			Addr: addr,
@@ -57,6 +57,9 @@ func NewServer(addr string, pollch chan<- []byte, st store.GitRepoStore) *Server
 		Methods(http.MethodGet)
 
 	// TODO: delete git repos
+
+	r.Handle("/pipelines", chain(srv.getPipelines, setRequestID, logRequest)).
+		Methods(http.MethodGet)
 
 	return srv
 }

@@ -43,6 +43,7 @@ type GitRepo struct {
 // pipelines should be able to do. All its members take pointers and
 // update data in place instead of returning new values.
 type PipelineStore interface {
+	GetPipelines() ([]Pipeline, error)
 	ReadPipeline(*Pipeline) error
 
 	CreateRun(*Run) error
@@ -57,49 +58,49 @@ type PipelineStore interface {
 // Pipeline is a series of "runs" grouped together by a repository's URL
 // and the pipeline's name.
 type Pipeline struct {
-	Remote string `db:"remote"`
-	Name   string `db:"name"`
-	Ref    string `db:"ref"`
-	Runs   []Run  `db:"-"`
+	Remote string `json:"remote"`
+	Name   string `json:"name"`
+	Ref    string `json:"ref"`
+	Runs   []Run  `json:"runs"`
 }
 
 // Run is a representation of the actual state of execution of a pipeline.
 type Run struct {
-	Count   int        `db:"id"`
-	Start   *time.Time `db:"start"`
-	End     *time.Time `db:"end"`
-	Success *bool      `db:"success"` // mid-run is neither success nor failure
-	Steps   []Step     `db:"-"`
+	Count   int        `json:"count"`
+	Start   *time.Time `json:"start"`
+	End     *time.Time `json:"end"`
+	Success *bool      `json:"success"` // mid-run is neither success nor failure
+	Steps   []Step     `json:"steps"`
 
-	PipelineRemote string `db:"pipeline_remote"`
-	PipelineName   string `db:"pipeline_name"`
+	PipelineRemote string `json:"-"`
+	PipelineName   string `json:"-"`
 }
 
 // Step is the representation of the actual state of execution of a group of
 // pipeline tasks.
 type Step struct {
-	ID      int        `db:"id"`
-	Name    string     `db:"name"`
-	Start   *time.Time `db:"start"`
-	End     *time.Time `db:"end"`
-	Tasks   []Task     `db:"-"`
-	Success *bool      `db:"success"` // mid-run is neither success nor failure
+	ID      int        `json:"id"`
+	Name    string     `json:"name"`
+	Start   *time.Time `json:"start"`
+	End     *time.Time `json:"end"`
+	Tasks   []Task     `json:"tasks"`
+	Success *bool      `json:"success"` // mid-run is neither success nor failure
 
-	PipelineRemote string `db:"pipeline_remote"`
-	PipelineName   string `db:"pipeline_name"`
-	RunCount       int    `db:"run_count"`
+	PipelineRemote string `json:"-"`
+	PipelineName   string `json:"-"`
+	RunCount       int    `json:"-"`
 }
 
 // Task is the representation of the actual state of execution of a pipeline
 // run task.
 type Task struct {
-	ID      int        `db:"id"`
-	Name    string     `db:"name"`
-	Start   *time.Time `db:"start"`
-	End     *time.Time `db:"end"`
-	Success *bool      `db:"success"` // mid-run is neither success nor failure
+	ID      int        `json:"id"`
+	Name    string     `json:"name"`
+	Start   *time.Time `json:"start"`
+	End     *time.Time `json:"end"`
+	Success *bool      `json:"success"` // mid-run is neither success nor failure
 
-	StepID int `db:"step_id"`
+	StepID int `json:"-"`
 }
 
 // SetStart is a convenience method for setting the start time pointer.
