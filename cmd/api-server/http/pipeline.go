@@ -45,7 +45,7 @@ func (srv *Server) getPipelines(rw http.ResponseWriter, req *http.Request) {
 	logger := logger.WithField("request_id", reqID)
 
 	if _, ok := req.URL.Query()["remote"]; !ok {
-		logger.Info("missing 'remote' argument, fetching all repos")
+		logger.Info("missing 'remote' argument, fetching all pipelines")
 
 		srv.getAllPipelines(logger, rw)
 		return

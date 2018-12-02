@@ -19,8 +19,8 @@ func init() {
 	})
 }
 
-// RelayStore is an interfacing defining the behavior of a fully-featured
-// component for Relay.
+// RelayStore is an all-encompassing interface for all the behaviors
+// a store can exhibit.
 type RelayStore interface {
 	GitRepoStore
 	PipelineStore
@@ -39,13 +39,17 @@ type GitRepo struct {
 	Branch string
 }
 
+// PipelineQuerier is an interface defining the behavior of an entity
+// that can query a store for pipeline information.
+type PipelineQuerier interface {
+	GetPipelines() ([]Pipeline, error)
+	ReadPipeline(*Pipeline) error
+}
+
 // PipelineStore is an interface defining what a thing that can store
 // pipelines should be able to do. All its members take pointers and
 // update data in place instead of returning new values.
 type PipelineStore interface {
-	GetPipelines() ([]Pipeline, error)
-	ReadPipeline(*Pipeline) error
-
 	CreateRun(*Run) error
 	CreateStep(*Step) error
 	CreateTask(*Task) error
@@ -53,6 +57,8 @@ type PipelineStore interface {
 	UpdateRun(*Run) error
 	UpdateStep(*Step) error
 	UpdateTask(*Task) error
+
+	PipelineQuerier
 }
 
 // Pipeline is a series of "runs" grouped together by a repository's URL

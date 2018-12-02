@@ -16,12 +16,13 @@ import (
 )
 
 type memStore struct {
-	db map[string]store.GitRepo
+	repodb     map[string]store.GitRepo
+	pipelinedb map[string]store.Pipeline
 }
 
 func (st *memStore) CreateGitRepo(repo store.GitRepo) error {
 	key := fmt.Sprintf("%v#%v", repo.Remote, repo.Branch)
-	st.db[key] = repo
+	st.repodb[key] = repo
 
 	return nil
 }
@@ -29,13 +30,13 @@ func (st *memStore) CreateGitRepo(repo store.GitRepo) error {
 func (st *memStore) GetGitRepo(remote, branch string) (store.GitRepo, error) {
 	key := fmt.Sprintf("%v#%v", remote, branch)
 
-	return st.db[key], nil
+	return st.repodb[key], nil
 }
 
 func (st *memStore) GetGitRepos() ([]store.GitRepo, error) {
-	ret := make([]store.GitRepo, len(st.db))
+	ret := make([]store.GitRepo, len(st.repodb))
 	i := 0
-	for _, repo := range st.db {
+	for _, repo := range st.repodb {
 		ret[i] = repo
 		i++
 	}
@@ -44,17 +45,17 @@ func (st *memStore) GetGitRepos() ([]store.GitRepo, error) {
 }
 
 func (st *memStore) seedRepos() {
-	st.db["test.git#master"] = store.GitRepo{
+	st.repodb["test.git#master"] = store.GitRepo{
 		Remote: "test.git",
 		Branch: "master",
 	}
 
-	st.db["test.git#feature"] = store.GitRepo{
+	st.repodb["test.git#feature"] = store.GitRepo{
 		Remote: "test.git",
 		Branch: "feature",
 	}
 
-	st.db["https://github.com/run-ci/relay.git#master"] = store.GitRepo{
+	st.repodb["https://github.com/run-ci/relay.git#master"] = store.GitRepo{
 		Remote: "https://github.com/run-ci/relay.git",
 		Branch: "master",
 	}
@@ -63,7 +64,7 @@ func (st *memStore) seedRepos() {
 func TestPostGitRepo(t *testing.T) {
 	send := make(chan []byte)
 	st := &memStore{
-		db: make(map[string]store.GitRepo),
+		repodb: make(map[string]store.GitRepo),
 	}
 	srv := NewServer(":9001", send, st)
 
@@ -112,7 +113,7 @@ func TestPostGitRepo(t *testing.T) {
 
 func TestGetAllGitRepos(t *testing.T) {
 	st := &memStore{
-		db: make(map[string]store.GitRepo),
+		repodb: make(map[string]store.GitRepo),
 	}
 	st.seedRepos()
 
@@ -137,13 +138,13 @@ func TestGetAllGitRepos(t *testing.T) {
 		t.Fatalf("got error unmarshaling response body: %v", err)
 	}
 
-	if len(repos) != len(st.db) {
-		t.Fatalf("expected to get %v repos, got %v", len(st.db), len(repos))
+	if len(repos) != len(st.repodb) {
+		t.Fatalf("expected to get %v repos, got %v", len(st.repodb), len(repos))
 	}
 
 	for _, repo := range repos {
 		key := fmt.Sprintf("%v#%v", repo.Remote, repo.Branch)
-		if _, ok := st.db[key]; !ok {
+		if _, ok := st.repodb[key]; !ok {
 			t.Fatalf("got repo %v that isn't in DB", key)
 		}
 	}
@@ -153,7 +154,7 @@ func TestGetGitRepo(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	st := &memStore{
-		db: make(map[string]store.GitRepo),
+		repodb: make(map[string]store.GitRepo),
 	}
 	st.seedRepos()
 
@@ -196,7 +197,7 @@ func TestGetGitRepoWithBranch(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	st := &memStore{
-		db: make(map[string]store.GitRepo),
+		repodb: make(map[string]store.GitRepo),
 	}
 	st.seedRepos()
 
