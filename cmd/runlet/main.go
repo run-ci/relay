@@ -28,7 +28,7 @@ func init() {
 
 	gitimg = os.Getenv("RELAY_GIT_IMAGE")
 	if gitimg == "" {
-		gitimg = "run-ci/git-clone"
+		gitimg = "runci/git-clone"
 	}
 
 	cimnt = os.Getenv("RELAY_CI_MOUNT")
