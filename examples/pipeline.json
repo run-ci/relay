@@ -1,0 +1,46 @@
+{
+    "remote": "https://github.com/run-ci/runlet",
+    "name": "default",
+    "steps": [
+        {
+            "name": "write_log",
+            "tasks": [
+                {
+                    "name": "write",
+                    "command": "echo 'PIPELINE RUN' > ci.log",
+                    "image": "alpine"
+                }
+            ]
+        },
+        {
+            "name": "read_log",
+            "tasks": [
+                {
+                    "name": "read",
+                    "command": "cat ci.log",
+                    "image": "alpine"
+                }
+            ]
+        },
+        {
+            "name": "write_again",
+            "tasks": [
+                {
+                    "name": "write",
+                    "command": "echo 'PIPELINE RUN AGAIN' >> ci.log",
+                    "image": "alpine"
+                }
+            ]
+        },
+        {
+            "name": "read_again",
+            "tasks": [
+                {
+                    "name": "read",
+                    "command": "cat ci.log",
+                    "image": "alpine"
+                }
+            ]
+        }
+    ]
+}

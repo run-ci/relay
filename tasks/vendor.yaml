@@ -1,0 +1,25 @@
+---
+summary: Vendor Go dependencies.
+
+description: |
+  Go ignores the vendor folder by default when building
+  with modules. This means that for every run of the build-*
+  tasks, all the project's dependencies will need to be
+  downloaded.
+  
+  To avoid this, the local tasks can use the vendor folder
+  if you choose to download it with this task.
+
+image: golang:1.11-stretch
+
+mount: /go/src/github.com/run-ci/relay
+
+command: go mod vendor
+
+arguments:
+  GOOS:
+    description: Platform to build for.
+    default: linux
+  GO111MODULE:
+    description: Enable Go modules.
+    default: on

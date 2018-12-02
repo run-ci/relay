@@ -1,0 +1,47 @@
+---
+version: "3"
+
+services:
+  api:
+    image: ubuntu:18.04
+    environment:
+    - RELAY_LOG_LEVEL
+    - RELAY_POSTGRES_USER
+    - RELAY_POSTGRES_PASS
+    - RELAY_POSTGRES_DB
+    - RELAY_POSTGRES_HREF
+    - RELAY_POSTGRES_SSL
+    - RELAY_NATS_URL
+    volumes:
+    - "./build/relay-api-server:/bin/relay-api-server"
+    ports:
+    - "9001:9001"
+    command: /bin/relay-api-server
+  runlet:
+    image: ubuntu:18.04
+    environment:
+    - RELAY_NATS_URL
+    - RELAY_LOG_LEVEL
+    - RELAY_POSTGRES_USER
+    - RELAY_POSTGRES_PASS
+    - RELAY_POSTGRES_DB
+    - RELAY_POSTGRES_HREF
+    - RELAY_POSTGRES_SSL
+    volumes:
+    - "/var/run/docker.sock:/var/run/docker.sock"
+    - "./build/runlet:/bin/runlet"
+    command: /bin/runlet
+  queue:
+    image: nats
+    ports:
+    - "4222:4222"
+    - "5222:5222"
+    - "6222:6222"
+  store:
+    image: runci/postgres
+    ports:
+    - "5432:5432"
+    environment:
+    - POSTGRES_USER
+    - POSTGRES_PASSWORD
+    - POSTGRES_DB

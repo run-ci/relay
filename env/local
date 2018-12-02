@@ -1,0 +1,13 @@
+export POSTGRES_USER=relay_test
+export POSTGRES_PASSWORD=relay_test
+export POSTGRES_DB=relay_test
+
+export RELAY_LOG_LEVEL=debug
+
+export RELAY_POSTGRES_USER=$POSTGRES_USER
+export RELAY_POSTGRES_PASS=$POSTGRES_PASSWORD
+export RELAY_POSTGRES_DB=$POSTGRES_DB
+export RELAY_POSTGRES_HREF=store:5432 # This is the compose service
+export RELAY_POSTGRES_SSL=disable
+
+export RELAY_NATS_URL=nats://queue:4222
