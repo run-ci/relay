@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -44,27 +45,37 @@ func (srv *Server) getPipelines(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
 	logger := logger.WithField("request_id", reqID)
 
-	if _, ok := req.URL.Query()["remote"]; !ok {
-		logger.Info("missing 'remote' argument, fetching all pipelines")
+	var remote string
 
-		srv.getAllPipelines(logger, rw)
-		return
+	if _, ok := req.URL.Query()["remote"]; ok {
+		logger.Info("filtering pipelines by 'remote'")
+
+		var err error
+		remote, err = url.QueryUnescape(req.URL.Query()["remote"][0])
+		if err != nil {
+			logger.WithError(err).Error("unable to query-unescape remote")
+
+			writeErrResp(rw, err, http.StatusBadRequest)
+			return
+		}
+
+		logger = logger.WithField("remote", remote)
 	}
-	// remote := req.URL.Query()["remote"][0]
 
 	// branch := "master"
 	// if _, ok := req.URL.Query()["branch"]; ok {
+	// 	logger.Info("missing '")
 	// 	branch = req.URL.Query()["branch"][0]
 	// }
 
 	// logger.Infof("using %v as branch", branch)
 
-	// srv.getRepo(remote, branch, logger, rw)
+	srv.dbGetPipelines(remote, logger, rw)
 	return
 }
 
-func (srv *Server) getAllPipelines(logger *logrus.Entry, rw http.ResponseWriter) {
-	pipelines, err := srv.st.GetPipelines()
+func (srv *Server) dbGetPipelines(remote string, logger *logrus.Entry, rw http.ResponseWriter) {
+	pipelines, err := srv.st.GetPipelines(remote)
 	if err != nil {
 		logger.WithError(err).Error("unable to get pipelines from database")
 

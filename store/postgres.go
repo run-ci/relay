@@ -92,8 +92,11 @@ func (st *Postgres) GetGitRepos() ([]GitRepo, error) {
 }
 
 // GetPipelines is part of the PipelineStore interface. It returns
-// all pipelines stored in the database.
-func (st *Postgres) GetPipelines() ([]Pipeline, error) {
+// all pipelines stored in the database, filtered by remote.
+func (st *Postgres) GetPipelines(remote string) ([]Pipeline, error) {
+	logger.WithField("query", "get_pipelines")
+	logger.Debug("loading pipelines")
+
 	q := `SELECT p.name, p.remote, p.ref,
 				r.count, r.start_time, r.end_time, r.success,
 				s.id, s.name, s.start_time, s.end_time, s.success,
@@ -108,11 +111,18 @@ func (st *Postgres) GetPipelines() ([]Pipeline, error) {
 			INNER JOIN tasks AS t
 				ON t.step_id = s.id`
 
-	logger.WithField("query", "get_pipelines")
+	var rows *sql.Rows
+	var err error
+	switch {
+	case remote != "":
+		q = fmt.Sprintf(`%v
+			WHERE p.remote = $1`, q)
+		rows, err = st.db.Query(q, remote)
 
-	logger.Debug("loading pipelines")
+	default:
+		rows, err = st.db.Query(q)
+	}
 
-	rows, err := st.db.Query(q)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 		return nil, err

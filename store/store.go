@@ -42,8 +42,8 @@ type GitRepo struct {
 // PipelineQuerier is an interface defining the behavior of an entity
 // that can query a store for pipeline information.
 type PipelineQuerier interface {
-	GetPipelines() ([]Pipeline, error)
-	ReadPipeline(*Pipeline) error
+	GetPipelines(remote string) ([]Pipeline, error)
+	ReadPipeline(spec *Pipeline) error
 }
 
 // PipelineStore is an interface defining what a thing that can store
