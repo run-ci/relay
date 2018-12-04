@@ -3,9 +3,11 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/run-ci/relay/store"
@@ -138,6 +140,76 @@ func TestGetAllPipelines(t *testing.T) {
 	}
 
 	if len(pipelines) != len(st.pipelinedb) {
+		t.Fatalf("expected to get %v pipelines, got %v", len(st.pipelinedb), len(pipelines))
+	}
+
+	for _, pipeline := range pipelines {
+		key := pipeline.Remote + pipeline.Name
+		var stored store.Pipeline
+		var ok bool
+
+		if stored, ok = st.pipelinedb[key]; !ok {
+			t.Fatalf("got repo %v that isn't in DB", key)
+		}
+
+		if stored.Name != pipeline.Name {
+			t.Fatalf("expected pipeline named %v, got %v", stored.Name, pipeline.Name)
+		}
+
+		if stored.Remote != pipeline.Remote {
+			t.Fatalf("expected pipeline remote %v, got %v", stored.Remote, pipeline.Remote)
+		}
+
+		if stored.Ref != pipeline.Ref {
+			t.Fatalf("expected pipeline ref %v, got %v", stored.Ref, pipeline.Ref)
+		}
+
+		if len(pipeline.Runs) != len(stored.Runs) {
+			t.Fatalf("expected pipeline to have %v runs, got %v", stored.Runs, pipeline.Runs)
+		}
+
+		// TODO: test runs, test steps, test tasks
+	}
+}
+
+func TestGetPipelinesByRemote(t *testing.T) {
+	st := &memStore{
+		pipelinedb: make(map[string]store.Pipeline),
+	}
+	st.seedPipelines()
+
+	srv := NewServer(":9001", make(chan []byte), st)
+
+	remote := "https://github.com/run-ci/relay.git"
+	remoteParam := url.QueryEscape(remote)
+	requrl := fmt.Sprintf("http://test/pipelines?remote=%v", remoteParam)
+
+	req := httptest.NewRequest(http.MethodGet, requrl, nil)
+	req = req.WithContext(context.WithValue(context.Background(), keyReqID, "test"))
+	rw := httptest.NewRecorder()
+
+	srv.getPipelines(rw, req)
+
+	resp := rw.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected stats %v, got %v", http.StatusOK, resp.StatusCode)
+	}
+
+	payload, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("got error reading response body: %v", err)
+	}
+	defer resp.Body.Close()
+
+	pipelines := []store.Pipeline{}
+	err = json.Unmarshal(payload, &pipelines)
+	if err != nil {
+		t.Fatalf("got error unmarshaling response body: %v", err)
+	}
+
+	expected, _ := st.GetPipelines(remote)
+
+	if len(pipelines) != len(expected) {
 		t.Fatalf("expected to get %v pipelines, got %v", len(st.pipelinedb), len(pipelines))
 	}
 
