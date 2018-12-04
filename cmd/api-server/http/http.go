@@ -23,10 +23,17 @@ func init() {
 	logger = logrus.WithField("package", "http")
 }
 
+// apiStore is a grouping of the minimum number of store
+// interfaces the API needs to work.
+type apiStore interface {
+	store.PipelineQuerier
+	store.GitRepoStore
+}
+
 // Server is a net/http.Server with dependencies like
 // the database connection.
 type Server struct {
-	st     store.GitRepoStore
+	st     apiStore
 	pollch chan<- []byte
 
 	*http.Server
@@ -34,7 +41,7 @@ type Server struct {
 
 // NewServer returns a Server with a reference to `st`, listening
 // on `addr`.
-func NewServer(addr string, pollch chan<- []byte, st store.GitRepoStore) *Server {
+func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 	srv := &Server{
 		Server: &http.Server{
 			Addr: addr,
@@ -57,6 +64,9 @@ func NewServer(addr string, pollch chan<- []byte, st store.GitRepoStore) *Server
 		Methods(http.MethodGet)
 
 	// TODO: delete git repos
+
+	r.Handle("/pipelines", chain(srv.getPipelines, setRequestID, logRequest)).
+		Methods(http.MethodGet)
 
 	return srv
 }

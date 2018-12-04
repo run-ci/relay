@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 
 	_ "github.com/lib/pq" // load the postgres driver
 	log "github.com/sirupsen/logrus"
@@ -88,6 +89,179 @@ func (st *Postgres) GetGitRepos() ([]GitRepo, error) {
 	}
 
 	return repos, nil
+}
+
+// GetPipelines is part of the PipelineStore interface. It returns
+// all pipelines stored in the database, filtered by remote.
+func (st *Postgres) GetPipelines(remote string) ([]Pipeline, error) {
+	logger.WithField("query", "get_pipelines")
+	logger.Debug("loading pipelines")
+
+	q := `SELECT p.name, p.remote, p.ref,
+				r.count, r.start_time, r.end_time, r.success,
+				s.id, s.name, s.start_time, s.end_time, s.success,
+				t.id, t.name, t.start_time, t.end_time, t.success
+			FROM pipelines AS p INNER JOIN runs AS r
+				ON p.remote = r.pipeline_remote
+				AND p.name = r.pipeline_name
+			INNER JOIN steps AS s
+				ON s.pipeline_remote = p.remote
+				AND s.pipeline_name = p.name
+				AND s.run_count = r.count
+			INNER JOIN tasks AS t
+				ON t.step_id = s.id`
+
+	var rows *sql.Rows
+	var err error
+	switch {
+	case remote != "":
+		q = fmt.Sprintf(`%v
+			WHERE p.remote = $1`, q)
+		rows, err = st.db.Query(q, remote)
+
+	default:
+		rows, err = st.db.Query(q)
+	}
+
+	if err != nil {
+		logger.WithError(err).Debug("unable to query database")
+		return nil, err
+	}
+
+	root := rootnode{
+		children: make(map[string]*pipelinenode),
+	}
+
+	for rows.Next() {
+		pipeline := Pipeline{}
+		run := Run{}
+		step := Step{}
+		task := Task{}
+
+		logger.Debug("scanning row")
+
+		err := rows.Scan(
+			&pipeline.Name, &pipeline.Remote, &pipeline.Ref,
+			&run.Count, &run.Start, &run.End, &run.Success,
+			&step.ID, &step.Name, &step.Start, &step.End, &step.Success,
+			&task.ID, &task.Name, &task.Start, &task.End, &task.Success,
+		)
+		if err != nil {
+			logger.WithError(err).Debug("unable to scan row")
+			return nil, err
+		}
+
+		pkey := fmt.Sprintf("%v%v", pipeline.Remote, pipeline.Name)
+		rkey := fmt.Sprintf("%v%v", pkey, run.Count)
+		skey := step.ID
+
+		pnode, ok := root.children[pkey]
+		if !ok {
+			logger.Debug("pipeline cache miss")
+
+			pnode = &pipelinenode{
+				children: make(map[string]*runnode),
+				data:     pipeline,
+			}
+
+			rnode := &runnode{
+				children: make(map[int]*stepnode),
+				data:     run,
+			}
+
+			snode := &stepnode{
+				children: make(map[int]*tasknode),
+				data:     step,
+			}
+
+			tnode := &tasknode{
+				data: task,
+			}
+
+			snode.children[task.ID] = tnode
+			rnode.children[skey] = snode
+			pnode.children[rkey] = rnode
+			root.children[pkey] = pnode
+
+			continue
+		}
+
+		rnode, ok := pnode.children[rkey]
+		if !ok {
+			logger.Debug("run cache miss")
+
+			rnode = &runnode{
+				children: make(map[int]*stepnode),
+				data:     run,
+			}
+
+			snode := &stepnode{
+				children: make(map[int]*tasknode),
+				data:     step,
+			}
+
+			tnode := &tasknode{
+				data: task,
+			}
+
+			snode.children[task.ID] = tnode
+			rnode.children[skey] = snode
+			pnode.children[rkey] = rnode
+
+			continue
+		}
+
+		snode, ok := rnode.children[skey]
+		if !ok {
+			logger.Debug("step cache miss")
+
+			snode = &stepnode{
+				children: make(map[int]*tasknode),
+				data:     step,
+			}
+
+			tnode := &tasknode{
+				data: task,
+			}
+
+			snode.children[task.ID] = tnode
+			rnode.children[skey] = snode
+
+			continue
+		}
+	}
+
+	pipelines := make([]Pipeline, len(root.children))
+	i := 0
+	for _, pnode := range root.children {
+		logger.Debugf("processing pipeline %v", i)
+
+		pipeline := pnode.data
+
+		for _, rnode := range pnode.children {
+			logger.Debug("processing run")
+
+			run := rnode.data
+			for _, snode := range rnode.children {
+				logger.Debug("processing step")
+
+				step := snode.data
+				for _, tnode := range snode.children {
+					logger.Debug("processing task")
+
+					step.Tasks = append(step.Tasks, tnode.data)
+				}
+				run.Steps = append(run.Steps, step)
+			}
+			pipeline.Runs = append(pipeline.Runs, run)
+		}
+
+		pipelines[i] = pipeline
+
+		i++
+	}
+
+	return pipelines, nil
 }
 
 // ReadPipeline is part of the PipelineStore interface. If the pipeline
