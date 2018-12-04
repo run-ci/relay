@@ -11,12 +11,12 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetPipelines() ([]store.Pipeline, error) {
-	pipelines := make([]store.Pipeline, len(st.pipelinedb))
-	i := 0
+func (st *memStore) GetPipelines(remote string) ([]store.Pipeline, error) {
+	pipelines := []store.Pipeline{}
 	for _, pipeline := range st.pipelinedb {
-		pipelines[i] = pipeline
-		i++
+		if remote == "" || remote == pipeline.Remote {
+			pipelines = append(pipelines, pipeline)
+		}
 	}
 
 	return pipelines, nil
