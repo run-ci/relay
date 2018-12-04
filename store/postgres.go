@@ -61,11 +61,11 @@ func (st *Postgres) GetProject(id int) (Project, error) {
 
 	sqlq := `
 	SELECT proj.id, proj.name, proj.description,
-		gr.url, gr.branch,
+		gr.url, gr.branch
 	FROM projects AS proj
 	INNER JOIN git_remotes AS gr
 	ON proj.id = gr.project_id
-	WHERE project.id = $1;
+	WHERE proj.id = $1;
 	`
 
 	rows, err := st.db.Query(sqlq, id)
@@ -79,12 +79,17 @@ func (st *Postgres) GetProject(id int) (Project, error) {
 	}
 	for rows.Next() {
 		var gr GitRemote
+		var desc sql.NullString
 		// It's safe to always overwrite `p` here because these values
 		// should always be the same.
-		err := rows.Scan(&p.ID, &p.Name, &p.Description, &gr.URL, &gr.Branch)
+		err := rows.Scan(&p.ID, &p.Name, &desc, &gr.URL, &gr.Branch)
 		if err != nil {
 			logger.WithError(err).Debug("unable to scan row")
 			return p, err
+		}
+
+		if desc.Valid {
+			p.Description = desc.String
 		}
 
 		p.GitRemotes = append(p.GitRemotes, gr)
@@ -110,11 +115,17 @@ func (st *Postgres) GetProjects() ([]Project, error) {
 	ps := []Project{}
 	for rows.Next() {
 		p := Project{}
-		err := rows.Scan(&p.ID, &p.Name, &p.Description)
+		var desc sql.NullString
+		err := rows.Scan(&p.ID, &p.Name, &desc)
 		if err != nil {
 			logger.WithField("error", err).Debug("unable to scan row")
 			return ps, err
 		}
+
+		if desc.Valid {
+			p.Description = desc.String
+		}
+
 		ps = append(ps, p)
 	}
 

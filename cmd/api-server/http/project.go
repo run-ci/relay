@@ -90,6 +90,8 @@ func (srv *Server) handleGetProjects(rw http.ResponseWriter, req *http.Request) 
 	reqID := req.Context().Value(keyReqID).(string)
 	logger := logger.WithField("request_id", reqID)
 
+	logger.Debug("retrieving projects from database")
+
 	projects, err := srv.st.GetProjects()
 	if err != nil {
 		logger.WithError(err).Error("unable to retrieve projects from database")

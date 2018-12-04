@@ -64,10 +64,13 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 	r.Handle("/projects", chain(srv.handleCreateProject, setRequestID, logRequest)).
 		Methods(http.MethodPost)
 
-	// r.Handle("/repos/git", chain(srv.getGitRepo, setRequestID, logRequest)).
-	// 	Methods(http.MethodGet)
+	r.Handle("/projects", chain(srv.handleGetProjects, setRequestID, logRequest)).
+		Methods(http.MethodGet)
 
-	// TODO: delete git repos
+	r.Handle("/projects/{id}", chain(srv.handleGetProject, setRequestID, logRequest)).
+		Methods(http.MethodGet)
+
+	// TODO: delete projects
 
 	// r.Handle("/pipelines", chain(srv.getPipelines, setRequestID, logRequest)).
 	// 	Methods(http.MethodGet)

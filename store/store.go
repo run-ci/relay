@@ -55,7 +55,7 @@ type Project struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 
-	GitRemotes []GitRemote `json:"git_remotes"`
+	GitRemotes []GitRemote `json:"git_remotes,omitempty"`
 }
 
 // GitRemote is the remote location of a Git repository, specified
