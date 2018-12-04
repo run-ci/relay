@@ -26,8 +26,12 @@ func init() {
 // apiStore is a grouping of the minimum number of store
 // interfaces the API needs to work.
 type apiStore interface {
-	store.PipelineQuerier
-	store.GitRepoStore
+	// GetPipelines(filter store.GitRemote) ([]store.Pipeline, error)
+	// GetPipeline(id int) (store.Pipeline, error)
+
+	CreateProject(*store.Project) error
+	GetProject(id int) (store.Project, error)
+	GetProjects() ([]store.Project, error)
 }
 
 // Server is a net/http.Server with dependencies like
@@ -57,16 +61,16 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 	r.Handle("/", chain(getRoot, setRequestID, logRequest)).
 		Methods(http.MethodGet)
 
-	r.Handle("/repos/git", chain(srv.postGitRepo, setRequestID, logRequest)).
+	r.Handle("/projects", chain(srv.handleCreateProject, setRequestID, logRequest)).
 		Methods(http.MethodPost)
 
-	r.Handle("/repos/git", chain(srv.getGitRepo, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	// r.Handle("/repos/git", chain(srv.getGitRepo, setRequestID, logRequest)).
+	// 	Methods(http.MethodGet)
 
 	// TODO: delete git repos
 
-	r.Handle("/pipelines", chain(srv.getPipelines, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	// r.Handle("/pipelines", chain(srv.getPipelines, setRequestID, logRequest)).
+	// 	Methods(http.MethodGet)
 
 	return srv
 }
