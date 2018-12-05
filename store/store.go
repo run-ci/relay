@@ -19,6 +19,10 @@ func init() {
 	})
 }
 
+// ErrNoPipelines is an error returned when a method of a RelayStore
+// doesn't find any pipelines.
+var ErrNoPipelines = errors.New("no pipelines found")
+
 // RelayStore is an all-encompassing interface for all the behaviors
 // a store can exhibit.
 type RelayStore interface {
@@ -33,10 +37,15 @@ type RelayStore interface {
 	GetProjects() ([]Project, error)
 
 	GetPipelines(filter GitRemote) ([]Pipeline, error)
-	GetPipeline(id int) (Pipeline, error)
+	// GetPipelineID takes these fields because it's the only way to
+	// identify a pipeline before the ID is known. If there are no
+	// pipelines matching these filters, implementations should return
+	// ErrNoPipelines.
+	GetPipelineID(GitRemote, string) (int, error)
 
 	// These Create* methods save their respective resources in
 	// the store, setting create-time values on the input.
+	CreatePipeline(*Pipeline) error
 	CreateRun(*Run) error
 	CreateStep(*Step) error
 	CreateTask(*Task) error

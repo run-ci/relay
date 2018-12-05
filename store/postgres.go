@@ -306,45 +306,102 @@ func (st *Postgres) GetPipelines(remote GitRemote) ([]Pipeline, error) {
 	return []Pipeline{}, nil
 }
 
-func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
-	// logger := logger.WithFields(log.Fields{
-	// 	"pipeline_id": id,
-	// })
+// GetPipelineID queries Postgres for the ID of the pipeline matching the
+// filters. If no pipelines are found it returns ErrNoPipelines.
+func (st *Postgres) GetPipelineID(remote GitRemote, name string) (id int, err error) {
+	logger := logger.WithFields(log.Fields{
+		"url":    remote.URL,
+		"branch": remote.Branch,
+		"name":   name,
+		"query":  "get_pipeline_id",
+	})
 
-	return Pipeline{}, nil
+	sqlq := `
+	SELECT id
+	FROM pipelines
+	WHERE remote_url = $1
+		AND remote_branch = $2
+		AND name = $3;
+	`
+
+	logger.Debug("retrieving id from postgres")
+
+	err = st.db.QueryRow(sqlq, remote.URL, remote.Branch, name).Scan(&id)
+	if err == sql.ErrNoRows {
+		err = ErrNoPipelines
+	}
+
+	return
+}
+
+// CreatePipeline saves a Pipeline to Postgres.
+func (st *Postgres) CreatePipeline(p *Pipeline) error {
+	logger := logger.WithFields(log.Fields{
+		"name":   p.Name,
+		"url":    p.GitRemote.URL,
+		"branch": p.GitRemote.Branch,
+
+		"query": "create_pipeline",
+	})
+
+	sqlinsert := `
+	WITH project_id AS (
+		SELECT project_id FROM git_remotes
+		WHERE git_remotes.url = $2
+			AND git_remotes.branch = $3
+	)
+	INSERT INTO pipelines(name, remote_url, remote_branch, project_id)
+	SELECT $1, $2, $3, project_id   
+	FROM project_id
+	RETURNING id;
+	`
+
+	logger.Debug("saving pipeline")
+
+	// Using QueryRow because the insert is returning "count".
+	err := st.db.QueryRow(
+		sqlinsert, p.Name, p.GitRemote.URL, p.GitRemote.Branch).
+		Scan(&p.ID)
+	if err != nil {
+		logger.WithField("error", err).Debug("unable to insert pipeline run")
+		return err
+	}
+
+	logger.Debug("pipeline saved")
+
+	return nil
 }
 
 // CreateRun is part of the PipelineStore interface. It creates a new pipeline
 // run in the database and sets the count.
 func (st *Postgres) CreateRun(r *Run) error {
-	// logger := logger.WithFields(log.Fields{
-	// 	"pipeline_remote": r.PipelineRemote,
-	// 	"pipeline_name":   r.PipelineName,
-	// })
+	logger := logger.WithFields(log.Fields{
+		"pipeline_id": r.PipelineID,
+	})
 
-	// sqlinsert := `
-	// WITH run_count AS (
-	// 	SELECT COUNT(*) from runs
-	// 	WHERE runs.pipeline_remote = $4 AND runs.pipeline_name = $5
-	// )
-	// INSERT INTO runs (count, start_time, end_time, success, pipeline_remote, pipeline_name)
-	// SELECT run_count.count+1, $1, $2, $3, $4, $5
-	// FROM run_count
-	// RETURNING count
-	// `
+	sqlinsert := `
+	WITH run_count AS (
+		SELECT COUNT(*) from runs
+		WHERE runs.pipeline_id = $4
+	)
+	INSERT INTO runs (count, start_time, end_time, success, pipeline_id)
+	SELECT run_count.count+1, $1, $2, $3, $4
+	FROM run_count
+	RETURNING count
+	`
 
-	// logger.Debug("saving pipeline run")
+	logger.Debug("saving pipeline run")
 
-	// // Using QueryRow because the insert is returning "count".
-	// err := st.db.QueryRow(
-	// 	sqlinsert, r.Start, r.End, r.Success, r.PipelineRemote, r.PipelineName).
-	// 	Scan(&r.Count)
-	// if err != nil {
-	// 	logger.WithField("error", err).Debug("unable to insert pipeline run")
-	// 	return err
-	// }
+	// Using QueryRow because the insert is returning "count".
+	err := st.db.QueryRow(
+		sqlinsert, r.Start, r.End, r.Success, r.PipelineID).
+		Scan(&r.Count)
+	if err != nil {
+		logger.WithField("error", err).Debug("unable to insert pipeline run")
+		return err
+	}
 
-	// logger.Debug("pipeline run saved")
+	logger.Debug("pipeline run saved")
 
 	return nil
 }
@@ -352,31 +409,30 @@ func (st *Postgres) CreateRun(r *Run) error {
 // CreateStep is part of the PipelineStore interface. It creates a new run step
 // in the database and sets the ID.
 func (st *Postgres) CreateStep(s *Step) error {
-	// logger := logger.WithFields(log.Fields{
-	// 	"pipeline_remote": s.PipelineRemote,
-	// 	"pipeline_name":   s.PipelineName,
-	// 	"run_count":       s.RunCount,
-	// 	"name":            s.Name,
-	// })
+	logger := logger.WithFields(log.Fields{
+		"pipeline_id": s.PipelineID,
+		"run_count":   s.RunCount,
+		"name":        s.Name,
+	})
 
-	// sqlinsert := `
-	// INSERT INTO steps (name, start_time, end_time, success, pipeline_remote, pipeline_name, run_count)
-	// VALUES ($1, $2, $3, $4, $5, $6, $7)
-	// RETURNING id
-	// `
+	sqlinsert := `
+	INSERT INTO steps (name, start_time, end_time, success, pipeline_id, run_count)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	RETURNING id
+	`
 
-	// logger.Debug("saving run step")
+	logger.Debug("saving run step")
 
-	// // Using QueryRow because the insert is returning "id".
-	// err := st.db.QueryRow(
-	// 	sqlinsert, s.Name, s.Start, s.End, s.Success, s.PipelineRemote, s.PipelineName, s.RunCount).
-	// 	Scan(&s.ID)
-	// if err != nil {
-	// 	logger.WithField("error", err).Debug("unable to insert run step")
-	// 	return err
-	// }
+	// Using QueryRow because the insert is returning "id".
+	err := st.db.QueryRow(
+		sqlinsert, s.Name, s.Start, s.End, s.Success, s.PipelineID, s.RunCount).
+		Scan(&s.ID)
+	if err != nil {
+		logger.WithField("error", err).Debug("unable to insert run step")
+		return err
+	}
 
-	// logger.Debug("run step saved")
+	logger.Debug("run step saved")
 
 	return nil
 }
@@ -414,25 +470,24 @@ func (st *Postgres) CreateTask(t *Task) error {
 // UpdateRun implements part of PipelineStore. It updates a run task's success
 // status and end time.
 func (st *Postgres) UpdateRun(r *Run) error {
-	// logger := logger.WithFields(log.Fields{
-	// 	"pipeline_remote": r.PipelineRemote,
-	// 	"pipeline_name":   r.PipelineName,
-	// 	"count":           r.Count,
-	// 	"end":             r.End,
-	// 	"success":         r.Success,
-	// })
+	logger := logger.WithFields(log.Fields{
+		"pipeline_id": r.PipelineID,
+		"count":       r.Count,
+		"end":         r.End,
+		"success":     r.Success,
+	})
 
-	// sqlupdate := `
-	// UPDATE runs
-	// SET success = $1, end_time = $2
-	// WHERE runs.pipeline_remote = $3 AND runs.pipeline_name = $4 AND runs.count = $5
-	// `
+	sqlupdate := `
+	UPDATE runs
+	SET success = $1, end_time = $2
+	WHERE runs.pipeline_id = $3 AND runs.count = $4
+	`
 
-	// logger.Debug("saving run step")
+	logger.Debug("saving run step")
 
-	// st.db.Exec(sqlupdate, r.Success, r.End, r.PipelineRemote, r.PipelineName, r.Count)
+	st.db.Exec(sqlupdate, r.Success, r.End, r.PipelineID, r.Count)
 
-	// logger.Debug("run step saved")
+	logger.Debug("run step saved")
 
 	return nil
 }
@@ -440,27 +495,26 @@ func (st *Postgres) UpdateRun(r *Run) error {
 // UpdateStep is part of the PipelineStore interface. It update's a step's
 // success status and end time with what's passed in.
 func (st *Postgres) UpdateStep(s *Step) error {
-	// logger := logger.WithFields(log.Fields{
-	// 	"pipeline_remote": s.PipelineRemote,
-	// 	"pipeline_name":   s.PipelineName,
-	// 	"run_count":       s.RunCount,
-	// 	"name":            s.Name,
-	// 	"id":              s.ID,
-	// 	"success":         s.Success,
-	// 	"end":             s.End,
-	// })
+	logger := logger.WithFields(log.Fields{
+		"pipeline_id": s.PipelineID,
+		"run_count":   s.RunCount,
+		"name":        s.Name,
+		"id":          s.ID,
+		"success":     s.Success,
+		"end":         s.End,
+	})
 
-	// sqlupdate := `
-	// UPDATE steps
-	// SET success = $1, end_time = $2
-	// WHERE steps.id = $3
-	// `
+	sqlupdate := `
+	UPDATE steps
+	SET success = $1, end_time = $2
+	WHERE steps.id = $3
+	`
 
-	// logger.Debug("saving run step")
+	logger.Debug("saving run step")
 
-	// st.db.Exec(sqlupdate, s.Success, s.End, s.ID)
+	st.db.Exec(sqlupdate, s.Success, s.End, s.ID)
 
-	// logger.Debug("run step saved")
+	logger.Debug("run step saved")
 
 	return nil
 }

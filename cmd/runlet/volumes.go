@@ -5,11 +5,12 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
+	"github.com/run-ci/relay/store"
 	"github.com/run-ci/run/pkg/run"
+	log "github.com/sirupsen/logrus"
 )
 
-func initCIVolume(agent *run.Agent, client *docker.Client, remote string) string {
+func initCIVolume(agent *run.Agent, client *docker.Client, remote store.GitRemote) string {
 	logger := logger.WithField("remote", remote)
 
 	name := fmt.Sprintf("runlet.%v", uuid.New())
@@ -33,7 +34,8 @@ func initCIVolume(agent *run.Agent, client *docker.Client, remote string) string
 
 	spec := run.ContainerSpec{
 		Imgref: gitimg,
-		Cmd:    []string{remote, "."},
+		// TODO: use the URL and the branch here
+		Cmd: []string{remote.URL, "."},
 		Mount: run.Mount{
 			Src:   vol.Name,
 			Point: cimnt,

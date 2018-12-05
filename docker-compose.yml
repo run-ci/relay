@@ -17,20 +17,20 @@ services:
     ports:
     - "9001:9001"
     command: /bin/relay-api-server
-  # runlet:
-  #   image: ubuntu:18.04
-  #   environment:
-  #   - RELAY_NATS_URL
-  #   - RELAY_LOG_LEVEL
-  #   - RELAY_POSTGRES_USER
-  #   - RELAY_POSTGRES_PASS
-  #   - RELAY_POSTGRES_DB
-  #   - RELAY_POSTGRES_HREF
-  #   - RELAY_POSTGRES_SSL
-  #   volumes:
-  #   - "/var/run/docker.sock:/var/run/docker.sock"
-  #   - "./build/runlet:/bin/runlet"
-  #   command: /bin/runlet
+  runlet:
+    image: ubuntu:18.04
+    environment:
+    - RELAY_NATS_URL
+    - RELAY_LOG_LEVEL
+    - RELAY_POSTGRES_USER
+    - RELAY_POSTGRES_PASS
+    - RELAY_POSTGRES_DB
+    - RELAY_POSTGRES_HREF
+    - RELAY_POSTGRES_SSL
+    volumes:
+    - "/var/run/docker.sock:/var/run/docker.sock"
+    - "./build/runlet:/bin/runlet"
+    command: /bin/runlet
   queue:
     image: nats
     ports:

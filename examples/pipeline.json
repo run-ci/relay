@@ -1,5 +1,8 @@
 {
-    "remote": "https://github.com/run-ci/runlet",
+    "git_remote": {
+        "url": "https://github.com/run-ci/relay.git",
+        "branch": "master"
+    },
     "name": "default",
     "steps": [
         {
