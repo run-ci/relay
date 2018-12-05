@@ -3,7 +3,7 @@
         "url": "https://github.com/run-ci/relay.git",
         "branch": "master"
     },
-    "name": "default",
+    "name": "docker",
     "steps": [
         {
             "name": "write_log",

@@ -36,7 +36,7 @@ type RelayStore interface {
 	// information as to what's inside those Projects.
 	GetProjects() ([]Project, error)
 
-	GetPipelines(filter GitRemote) ([]Pipeline, error)
+	GetPipelines(projectid int) ([]Pipeline, error)
 	// GetPipelineID takes these fields because it's the only way to
 	// identify a pipeline before the ID is known. If there are no
 	// pipelines matching these filters, implementations should return
@@ -53,6 +53,7 @@ type RelayStore interface {
 	// These Update* methods update their respective resources in
 	// the store, setting update-time values on the input if there
 	// are any.
+	UpdatePipeline(*Pipeline) error
 	UpdateRun(*Run) error
 	UpdateStep(*Step) error
 	UpdateTask(*Task) error
@@ -78,8 +79,9 @@ type GitRemote struct {
 
 // Pipeline is a grouping of steps with a name associated.
 type Pipeline struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Success *bool  `json:"success"`
 
 	GitRemote GitRemote `json:"git_remote"`
 
@@ -87,7 +89,7 @@ type Pipeline struct {
 	// can be updated to have different steps. Placing them
 	// directly on the pipeline itself would mean that the
 	// data from previous runs could be mangled.
-	Runs []Run `json:"runs"`
+	Runs []Run `json:"runs,omitempty"`
 }
 
 // Run is a representation of the actual state of execution of a pipeline.

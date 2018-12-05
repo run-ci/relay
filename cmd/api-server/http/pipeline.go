@@ -1,7 +1,13 @@
 package http
 
 import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strconv"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 type pipelineResponse struct {
@@ -36,57 +42,56 @@ type taskResponse struct {
 	Success bool       `json:"success"`
 }
 
-// func (srv *Server) getPipelines(rw http.ResponseWriter, req *http.Request) {
-// 	reqID := req.Context().Value(keyReqID).(string)
-// 	logger := logger.WithField("request_id", reqID)
+func (srv *Server) getPipelines(rw http.ResponseWriter, req *http.Request) {
+	reqID := req.Context().Value(keyReqID).(string)
+	logger := logger.WithField("request_id", reqID)
 
-// 	var remote string
+	logger.Debug("checking mux vars for project_id")
+	vars := mux.Vars(req)
 
-// 	if _, ok := req.URL.Query()["remote"]; ok {
-// 		logger.Info("filtering pipelines by 'remote'")
+	var raw string
+	var ok bool
+	if raw, ok = vars["project_id"]; !ok || raw == "" {
+		err := errors.New("missing paramter 'project_id' from request")
+		logger.WithError(err).Error("unable to complete request")
 
-// 		var err error
-// 		remote, err = url.QueryUnescape(req.URL.Query()["remote"][0])
-// 		if err != nil {
-// 			logger.WithError(err).Error("unable to query-unescape remote")
+		writeErrResp(rw, err, http.StatusBadRequest)
+		return
+	}
 
-// 			writeErrResp(rw, err, http.StatusBadRequest)
-// 			return
-// 		}
+	logger.Debug("parsing id")
 
-// 		logger = logger.WithField("remote", remote)
-// 	}
+	pid, err := strconv.Atoi(raw)
+	if err != nil {
+		logger.WithError(err).Error("unable to parse project id as integer")
 
-// 	// branch := "master"
-// 	// if _, ok := req.URL.Query()["branch"]; ok {
-// 	// 	logger.Info("missing '")
-// 	// 	branch = req.URL.Query()["branch"][0]
-// 	// }
+		writeErrResp(rw, err, http.StatusBadRequest)
+		return
+	}
 
-// 	// logger.Infof("using %v as branch", branch)
+	logger = logger.WithField("project_id", pid)
 
-// 	srv.dbGetPipelines(remote, logger, rw)
-// 	return
-// }
+	logger.Debug("retrieving pipelines from store")
 
-// func (srv *Server) dbGetPipelines(remote string, logger *logrus.Entry, rw http.ResponseWriter) {
-// 	pipelines, err := srv.st.GetPipelines(remote)
-// 	if err != nil {
-// 		logger.WithError(err).Error("unable to get pipelines from database")
+	pipelines, err := srv.st.GetPipelines(pid)
+	if err != nil {
+		logger.WithError(err).Error("unable to retrieve pipelines")
 
-// 		writeErrResp(rw, err, http.StatusInternalServerError)
-// 		return
-// 	}
+		writeErrResp(rw, err, http.StatusInternalServerError)
+		return
+	}
 
-// 	buf, err := json.Marshal(pipelines)
-// 	if err != nil {
-// 		logger.WithField("error", err).Error("unable to marshal response body")
+	logger.Debug("marshaling response body")
 
-// 		writeErrResp(rw, err, http.StatusInternalServerError)
-// 		return
-// 	}
+	buf, err := json.Marshal(pipelines)
+	if err != nil {
+		logger.WithError(err).Error("unable to marshal response body")
 
-// 	rw.WriteHeader(http.StatusOK)
-// 	rw.Write(buf)
-// 	return
-// }
+		writeErrResp(rw, err, http.StatusInternalServerError)
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	rw.Write(buf)
+	return
+}

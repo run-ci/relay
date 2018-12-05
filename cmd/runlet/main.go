@@ -91,8 +91,8 @@ func main() {
 
 		logger.Debug("loading pipeline")
 
-		var pid int
-		pid, err = st.GetPipelineID(ev.GitRemote, ev.Name)
+		var pipeline store.Pipeline
+		pipeline.ID, err = st.GetPipelineID(ev.GitRemote, ev.Name)
 		if err != nil && err != store.ErrNoPipelines {
 			logger.WithField("error", err).Error("error loading pipeline from store, skipping this run")
 
@@ -112,13 +112,13 @@ func main() {
 				continue
 			}
 
-			pid = p.ID
+			pipeline = p
 		}
 
-		logger.Debugf("got pid %v", pid)
+		logger.Debugf("got pipeline %+v", pipeline)
 
 		r := store.Run{
-			PipelineID: pid,
+			PipelineID: pipeline.ID,
 		}
 		r.SetStart()
 
@@ -151,7 +151,7 @@ func main() {
 				Name:       step.Name,
 				Start:      &start,
 				RunCount:   r.Count,
-				PipelineID: pid,
+				PipelineID: pipeline.ID,
 			}
 			r.Steps = append(r.Steps, s)
 
@@ -160,6 +160,8 @@ func main() {
 				logger.WithField("error", err).Error("unable to save step, aborting")
 
 				s.MarkSuccess(false)
+				pipeline.Success = false
+
 				break
 			}
 
@@ -182,6 +184,8 @@ func main() {
 
 					s.MarkSuccess(false)
 					r.MarkSuccess(false)
+					pipeline.Success = false
+
 					break
 				}
 
@@ -277,6 +281,12 @@ func main() {
 			logger.WithFields(log.Fields{
 				"error": err,
 			}).Error("unable to save run")
+		}
+
+		pipeline.Success = true
+		err = st.UpdatePipeline(&pipeline)
+		if err != nil {
+			logger.WithError(err).Error("unable to save pipeline")
 		}
 	}
 }

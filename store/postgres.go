@@ -132,178 +132,57 @@ func (st *Postgres) GetProjects() ([]Project, error) {
 	return ps, nil
 }
 
-// GetPipelines is part of the PipelineStore interface. It returns
-// all pipelines stored in the database, filtered by remote.
-func (st *Postgres) GetPipelines(remote GitRemote) ([]Pipeline, error) {
-	// logger.WithField("query", "get_pipelines")
-	// logger.Debug("loading pipelines")
+func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
+	sqlq := `
+	SELECT p.name, p.remote_url, p.remote_branch, p.success
+	FROM pipelines AS p
+	WHERE p.project_id = $1;
+	`
 
-	// q := `SELECT p.name, p.remote, p.ref,
-	// 			r.count, r.start_time, r.end_time, r.success,
-	// 			s.id, s.name, s.start_time, s.end_time, s.success,
-	// 			t.id, t.name, t.start_time, t.end_time, t.success
-	// 		FROM pipelines AS p INNER JOIN runs AS r
-	// 			ON p.remote = r.pipeline_remote
-	// 			AND p.name = r.pipeline_name
-	// 		INNER JOIN steps AS s
-	// 			ON s.pipeline_remote = p.remote
-	// 			AND s.pipeline_name = p.name
-	// 			AND s.run_count = r.count
-	// 		INNER JOIN tasks AS t
-	// 			ON t.step_id = s.id`
+	logger := logger.WithFields(log.Fields{
+		"project_id": pid,
+		"query":      "get_pipelines",
+	})
 
-	// var rows *sql.Rows
-	// var err error
-	// switch {
-	// case remote != "":
-	// 	q = fmt.Sprintf(`%v
-	// 		WHERE p.remote = $1`, q)
-	// 	rows, err = st.db.Query(q, remote)
+	rows, err := st.db.Query(sqlq, pid)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query postgres for pipelines")
+	}
 
-	// default:
-	// 	rows, err = st.db.Query(q)
-	// }
+	ps := []Pipeline{}
+	for rows.Next() {
+		p := Pipeline{}
 
-	// if err != nil {
-	// 	logger.WithError(err).Debug("unable to query database")
-	// 	return nil, err
-	// }
+		err := rows.Scan(&p.Name, &p.GitRemote.URL, &p.GitRemote.Branch, &p.Success)
+		if err != nil {
+			logger.WithError(err).Debug("unable to scan row")
 
-	// root := rootnode{
-	// 	children: make(map[string]*pipelinenode),
-	// }
+			return ps, err
+		}
 
-	// for rows.Next() {
-	// 	pipeline := Pipeline{}
-	// 	run := Run{}
-	// 	step := Step{}
-	// 	task := Task{}
+		ps = append(ps, p)
+	}
 
-	// 	logger.Debug("scanning row")
+	return ps, nil
+}
 
-	// 	err := rows.Scan(
-	// 		&pipeline.Name, &pipeline.Remote, &pipeline.Ref,
-	// 		&run.Count, &run.Start, &run.End, &run.Success,
-	// 		&step.ID, &step.Name, &step.Start, &step.End, &step.Success,
-	// 		&task.ID, &task.Name, &task.Start, &task.End, &task.Success,
-	// 	)
-	// 	if err != nil {
-	// 		logger.WithError(err).Debug("unable to scan row")
-	// 		return nil, err
-	// 	}
+func (st *Postgres) UpdatePipeline(p *Pipeline) error {
+	sqlupdate := `
+	UPDATE pipelines
+	SET success = $1
+	WHERE pipelines.id = $2
+	`
 
-	// 	pkey := fmt.Sprintf("%v%v", pipeline.Remote, pipeline.Name)
-	// 	rkey := fmt.Sprintf("%v%v", pkey, run.Count)
-	// 	skey := step.ID
+	logger := logger.WithFields(log.Fields{
+		"id":      p.ID,
+		"success": p.Success,
+		"query":   "set_pipeline_success",
+	})
 
-	// 	pnode, ok := root.children[pkey]
-	// 	if !ok {
-	// 		logger.Debug("pipeline cache miss")
+	logger.Debug("setting pipeline success")
 
-	// 		pnode = &pipelinenode{
-	// 			children: make(map[string]*runnode),
-	// 			data:     pipeline,
-	// 		}
-
-	// 		rnode := &runnode{
-	// 			children: make(map[int]*stepnode),
-	// 			data:     run,
-	// 		}
-
-	// 		snode := &stepnode{
-	// 			children: make(map[int]*tasknode),
-	// 			data:     step,
-	// 		}
-
-	// 		tnode := &tasknode{
-	// 			data: task,
-	// 		}
-
-	// 		snode.children[task.ID] = tnode
-	// 		rnode.children[skey] = snode
-	// 		pnode.children[rkey] = rnode
-	// 		root.children[pkey] = pnode
-
-	// 		continue
-	// 	}
-
-	// 	rnode, ok := pnode.children[rkey]
-	// 	if !ok {
-	// 		logger.Debug("run cache miss")
-
-	// 		rnode = &runnode{
-	// 			children: make(map[int]*stepnode),
-	// 			data:     run,
-	// 		}
-
-	// 		snode := &stepnode{
-	// 			children: make(map[int]*tasknode),
-	// 			data:     step,
-	// 		}
-
-	// 		tnode := &tasknode{
-	// 			data: task,
-	// 		}
-
-	// 		snode.children[task.ID] = tnode
-	// 		rnode.children[skey] = snode
-	// 		pnode.children[rkey] = rnode
-
-	// 		continue
-	// 	}
-
-	// 	snode, ok := rnode.children[skey]
-	// 	if !ok {
-	// 		logger.Debug("step cache miss")
-
-	// 		snode = &stepnode{
-	// 			children: make(map[int]*tasknode),
-	// 			data:     step,
-	// 		}
-
-	// 		tnode := &tasknode{
-	// 			data: task,
-	// 		}
-
-	// 		snode.children[task.ID] = tnode
-	// 		rnode.children[skey] = snode
-
-	// 		continue
-	// 	}
-	// }
-
-	// pipelines := make([]Pipeline, len(root.children))
-	// i := 0
-	// for _, pnode := range root.children {
-	// 	logger.Debugf("processing pipeline %v", i)
-
-	// 	pipeline := pnode.data
-
-	// 	for _, rnode := range pnode.children {
-	// 		logger.Debug("processing run")
-
-	// 		run := rnode.data
-	// 		for _, snode := range rnode.children {
-	// 			logger.Debug("processing step")
-
-	// 			step := snode.data
-	// 			for _, tnode := range snode.children {
-	// 				logger.Debug("processing task")
-
-	// 				step.Tasks = append(step.Tasks, tnode.data)
-	// 			}
-	// 			run.Steps = append(run.Steps, step)
-	// 		}
-	// 		pipeline.Runs = append(pipeline.Runs, run)
-	// 	}
-
-	// 	pipelines[i] = pipeline
-
-	// 	i++
-	// }
-
-	// return pipelines, nil
-	return []Pipeline{}, nil
+	_, err := st.db.Exec(sqlupdate, p.Success, p.ID)
+	return err
 }
 
 // GetPipelineID queries Postgres for the ID of the pipeline matching the
