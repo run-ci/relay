@@ -34,7 +34,7 @@ func (st *memStore) seedPipelines() {
 	}{
 		{
 			id:           0,
-			name:         "test-a",
+			name:         "default",
 			success:      true,
 			remoteURL:    "https://github.com/run-ci/relay.git",
 			remoteBranch: "master",
@@ -42,19 +42,19 @@ func (st *memStore) seedPipelines() {
 		},
 		{
 			id:           1,
-			name:         "test-b",
+			name:         "docker",
 			success:      true,
 			remoteURL:    "https://github.com/run-ci/relay.git",
-			remoteBranch: "feature",
+			remoteBranch: "master",
 			projectID:    0,
 		},
 		{
 			id:           2,
-			name:         "docker",
+			name:         "default",
 			success:      false,
-			remoteURL:    "https://github.com/run-ci/relay.git",
+			remoteURL:    "https://github.com/run-ci/run.git",
 			remoteBranch: "master",
-			projectID:    0,
+			projectID:    1,
 		},
 	}
 
@@ -81,11 +81,11 @@ func TestGetPipelines(t *testing.T) {
 
 	test := struct {
 		input    int
-		expected store.Pipeline
+		expected []store.Pipeline
 		actual   []store.Pipeline
 	}{
 		input:    0,
-		expected: st.pipelinedb[0],
+		expected: []store.Pipeline{st.pipelinedb[0], st.pipelinedb[1]},
 		actual:   []store.Pipeline{},
 	}
 
@@ -120,138 +120,10 @@ func TestGetPipelines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("got error unmarshaling pipelines: %v", err)
 	}
+
+	if len(test.expected) != len(test.actual) {
+		t.Fatalf("expected %v pipelines, got %v", len(test.expected), len(test.actual))
+	}
+
+	// TODO: test pipelines that are returned
 }
-
-// func TestGetAllPipelines(t *testing.T) {
-// 	st := &memStore{
-// 		pipelinedb: make(map[string]store.Pipeline),
-// 	}
-// 	st.seedPipelines()
-
-// 	srv := NewServer(":9001", make(chan []byte), st)
-
-// 	req := httptest.NewRequest(http.MethodGet, "http://test/pipelines", nil)
-// 	req = req.WithContext(context.WithValue(context.Background(), keyReqID, "test"))
-// 	rw := httptest.NewRecorder()
-
-// 	srv.getPipelines(rw, req)
-
-// 	resp := rw.Result()
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Fatalf("expected stats %v, got %v", http.StatusOK, resp.StatusCode)
-// 	}
-
-// 	payload, err := ioutil.ReadAll(resp.Body)
-// 	if err != nil {
-// 		t.Fatalf("got error reading response body: %v", err)
-// 	}
-// 	defer resp.Body.Close()
-
-// 	pipelines := []store.Pipeline{}
-// 	err = json.Unmarshal(payload, &pipelines)
-// 	if err != nil {
-// 		t.Fatalf("got error unmarshaling response body: %v", err)
-// 	}
-
-// 	if len(pipelines) != len(st.pipelinedb) {
-// 		t.Fatalf("expected to get %v pipelines, got %v", len(st.pipelinedb), len(pipelines))
-// 	}
-
-// 	for _, pipeline := range pipelines {
-// 		key := pipeline.Remote + pipeline.Name
-// 		var stored store.Pipeline
-// 		var ok bool
-
-// 		if stored, ok = st.pipelinedb[key]; !ok {
-// 			t.Fatalf("got repo %v that isn't in DB", key)
-// 		}
-
-// 		if stored.Name != pipeline.Name {
-// 			t.Fatalf("expected pipeline named %v, got %v", stored.Name, pipeline.Name)
-// 		}
-
-// 		if stored.Remote != pipeline.Remote {
-// 			t.Fatalf("expected pipeline remote %v, got %v", stored.Remote, pipeline.Remote)
-// 		}
-
-// 		if stored.Ref != pipeline.Ref {
-// 			t.Fatalf("expected pipeline ref %v, got %v", stored.Ref, pipeline.Ref)
-// 		}
-
-// 		if len(pipeline.Runs) != len(stored.Runs) {
-// 			t.Fatalf("expected pipeline to have %v runs, got %v", stored.Runs, pipeline.Runs)
-// 		}
-
-// 		// TODO: test runs, test steps, test tasks
-// 	}
-// }
-
-// func TestGetPipelinesByRemote(t *testing.T) {
-// 	st := &memStore{
-// 		pipelinedb: make(map[string]store.Pipeline),
-// 	}
-// 	st.seedPipelines()
-
-// 	srv := NewServer(":9001", make(chan []byte), st)
-
-// 	remote := "https://github.com/run-ci/relay.git"
-// 	remoteParam := url.QueryEscape(remote)
-// 	requrl := fmt.Sprintf("http://test/pipelines?remote=%v", remoteParam)
-
-// 	req := httptest.NewRequest(http.MethodGet, requrl, nil)
-// 	req = req.WithContext(context.WithValue(context.Background(), keyReqID, "test"))
-// 	rw := httptest.NewRecorder()
-
-// 	srv.getPipelines(rw, req)
-
-// 	resp := rw.Result()
-// 	if resp.StatusCode != http.StatusOK {
-// 		t.Fatalf("expected stats %v, got %v", http.StatusOK, resp.StatusCode)
-// 	}
-
-// 	payload, err := ioutil.ReadAll(resp.Body)
-// 	if err != nil {
-// 		t.Fatalf("got error reading response body: %v", err)
-// 	}
-// 	defer resp.Body.Close()
-
-// 	pipelines := []store.Pipeline{}
-// 	err = json.Unmarshal(payload, &pipelines)
-// 	if err != nil {
-// 		t.Fatalf("got error unmarshaling response body: %v", err)
-// 	}
-
-// 	expected, _ := st.GetPipelines(remote)
-
-// 	if len(pipelines) != len(expected) {
-// 		t.Fatalf("expected to get %v pipelines, got %v", len(st.pipelinedb), len(pipelines))
-// 	}
-
-// 	for _, pipeline := range pipelines {
-// 		key := pipeline.Remote + pipeline.Name
-// 		var stored store.Pipeline
-// 		var ok bool
-
-// 		if stored, ok = st.pipelinedb[key]; !ok {
-// 			t.Fatalf("got repo %v that isn't in DB", key)
-// 		}
-
-// 		if stored.Name != pipeline.Name {
-// 			t.Fatalf("expected pipeline named %v, got %v", stored.Name, pipeline.Name)
-// 		}
-
-// 		if stored.Remote != pipeline.Remote {
-// 			t.Fatalf("expected pipeline remote %v, got %v", stored.Remote, pipeline.Remote)
-// 		}
-
-// 		if stored.Ref != pipeline.Ref {
-// 			t.Fatalf("expected pipeline ref %v, got %v", stored.Ref, pipeline.Ref)
-// 		}
-
-// 		if len(pipeline.Runs) != len(stored.Runs) {
-// 			t.Fatalf("expected pipeline to have %v runs, got %v", stored.Runs, pipeline.Runs)
-// 		}
-
-// 		// TODO: test runs, test steps, test tasks
-// 	}
-// }
