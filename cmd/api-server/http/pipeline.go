@@ -42,7 +42,7 @@ type taskResponse struct {
 	Success bool       `json:"success"`
 }
 
-func (srv *Server) getPipelines(rw http.ResponseWriter, req *http.Request) {
+func (srv *Server) handleGetPipelines(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
 	logger := logger.WithField("request_id", reqID)
 

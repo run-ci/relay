@@ -1,101 +1,126 @@
 package http
 
-import "github.com/run-ci/relay/store"
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-func (st *memStore) GetPipelines(project int) (pipelines []store.Pipeline, err error) {
-	// pipelines := []store.Pipeline{}
-	// for _, pipeline := range st.pipelinedb {
-	// 	if remote == "" || remote == pipeline.Remote {
-	// 		pipelines = append(pipelines, pipeline)
-	// 	}
-	// }
+	"github.com/gorilla/mux"
+	"github.com/run-ci/relay/store"
+)
 
-	return pipelines, err
+func (st *memStore) GetPipelines(project int) ([]store.Pipeline, error) {
+	pipelines := []store.Pipeline{}
+	for _, pipeline := range st.pipelinedb {
+		if project == pipeline.ProjectID {
+			pipelines = append(pipelines, pipeline)
+		}
+	}
+
+	return pipelines, nil
 }
 
-// func (st *memStore) ReadPipeline(p *store.Pipeline) error {
+func (st *memStore) seedPipelines() {
+	data := []struct {
+		id           int
+		name         string
+		success      bool
+		remoteURL    string
+		remoteBranch string
+		projectID    int
+	}{
+		{
+			id:           0,
+			name:         "test-a",
+			success:      true,
+			remoteURL:    "https://github.com/run-ci/relay.git",
+			remoteBranch: "master",
+			projectID:    0,
+		},
+		{
+			id:           1,
+			name:         "test-b",
+			success:      true,
+			remoteURL:    "https://github.com/run-ci/relay.git",
+			remoteBranch: "feature",
+			projectID:    0,
+		},
+		{
+			id:           2,
+			name:         "docker",
+			success:      false,
+			remoteURL:    "https://github.com/run-ci/relay.git",
+			remoteBranch: "master",
+			projectID:    0,
+		},
+	}
 
-// 	return nil
-// }
+	for _, d := range data {
+		st.pipelinedb[d.projectID] = store.Pipeline{
+			ID:      d.id,
+			Name:    d.name,
+			Success: &d.success,
+			GitRemote: store.GitRemote{
+				Branch: d.remoteBranch,
+				URL:    d.remoteURL,
+			},
+		}
+	}
+}
 
-// func (st *memStore) seedPipelines() {
-// 	data := []struct {
-// 		remote  string
-// 		name    string
-// 		success bool
-// 	}{
-// 		{
-// 			"https://github.com/run-ci/relay.git",
-// 			"default",
-// 			true,
-// 		},
+func TestGetPipelines(t *testing.T) {
+	st := &memStore{
+		pipelinedb: make(map[int]store.Pipeline),
+	}
+	st.seedPipelines()
 
-// 		{
-// 			"https://github.com/run-ci/run.git",
-// 			"default",
-// 			true,
-// 		},
-// 	}
+	srv := NewServer(":9001", make(chan []byte), st)
 
-// 	for _, d := range data {
-// 		remote := d.remote
-// 		name := d.name
-// 		success := d.success
+	test := struct {
+		input    int
+		expected store.Pipeline
+		actual   []store.Pipeline
+	}{
+		input:    0,
+		expected: st.pipelinedb[0],
+		actual:   []store.Pipeline{},
+	}
 
-// 		pipeline := store.Pipeline{
-// 			Remote: remote,
-// 			Name:   name,
-// 			Ref:    "master",
-// 			Runs: []store.Run{
-// 				store.Run{
-// 					PipelineRemote: remote,
-// 					PipelineName:   name,
+	r := mux.NewRouter()
+	r.Handle("/pipelines/{project_id}", chain(srv.handleGetPipelines, setRequestID))
 
-// 					Count:   0,
-// 					Success: &success,
-// 					Steps: []store.Step{
-// 						store.Step{
-// 							PipelineRemote: remote,
-// 							PipelineName:   name,
-// 							RunCount:       0,
+	ts := httptest.NewServer(r)
+	defer ts.Close()
 
-// 							Name:    "test",
-// 							Success: &success,
-// 							Tasks: []store.Task{
-// 								store.Task{
-// 									StepID: 0,
+	requrl := fmt.Sprintf("%v/pipelines/%v", ts.URL, test.input)
+	req, err := http.NewRequest(http.MethodGet, requrl, nil)
+	if err != nil {
+		t.Fatalf("error creating http request for test: %v", err)
+	}
 
-// 									ID:      0,
-// 									Name:    "test",
-// 									Success: &success,
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 		}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("error executing test against test server: %v", err)
+	}
 
-// 		for _, run := range pipeline.Runs {
-// 			run.SetStart()
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("got error reading response body: %v", err)
+	}
+	defer resp.Body.Close()
 
-// 			for _, step := range run.Steps {
-// 				step.SetStart()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status code %v, got %v", http.StatusOK, resp.StatusCode)
+	}
 
-// 				for _, task := range step.Tasks {
-// 					task.SetStart()
-// 					task.SetEnd()
-// 				}
-
-// 				step.SetEnd()
-// 			}
-
-// 			run.SetEnd()
-// 		}
-
-// 		st.pipelinedb[remote+name] = pipeline
-// 	}
-// }
+	err = json.Unmarshal(buf, &test.actual)
+	if err != nil {
+		t.Fatalf("got error unmarshaling pipelines: %v", err)
+	}
+}
 
 // func TestGetAllPipelines(t *testing.T) {
 // 	st := &memStore{

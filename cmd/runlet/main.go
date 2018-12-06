@@ -160,7 +160,7 @@ func main() {
 				logger.WithField("error", err).Error("unable to save step, aborting")
 
 				s.MarkSuccess(false)
-				pipeline.Success = false
+				pipeline.MarkSuccess(false)
 
 				break
 			}
@@ -184,7 +184,7 @@ func main() {
 
 					s.MarkSuccess(false)
 					r.MarkSuccess(false)
-					pipeline.Success = false
+					pipeline.MarkSuccess(false)
 
 					break
 				}
@@ -283,7 +283,7 @@ func main() {
 			}).Error("unable to save run")
 		}
 
-		pipeline.Success = true
+		pipeline.MarkSuccess(true)
 		err = st.UpdatePipeline(&pipeline)
 		if err != nil {
 			logger.WithError(err).Error("unable to save pipeline")

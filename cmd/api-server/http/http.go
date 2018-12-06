@@ -72,7 +72,7 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 
 	// TODO: delete projects
 
-	r.Handle("/pipelines/{project_id}", chain(srv.getPipelines, setRequestID, logRequest)).
+	r.Handle("/pipelines/{project_id}", chain(srv.handleGetPipelines, setRequestID, logRequest)).
 		Methods(http.MethodGet)
 
 	return srv

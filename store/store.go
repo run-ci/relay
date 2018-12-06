@@ -84,6 +84,7 @@ type Pipeline struct {
 	Success *bool  `json:"success"`
 
 	GitRemote GitRemote `json:"git_remote"`
+	ProjectID int       `json:"project_id"`
 
 	// The steps are accessed run by run because a pipeline
 	// can be updated to have different steps. Placing them
@@ -130,6 +131,17 @@ type Task struct {
 	Success *bool      `json:"success"` // mid-run is neither success nor failure
 
 	StepID int `json:"-"`
+}
+
+// MarkSuccess is a convenience method for setting the success status.
+func (p *Pipeline) MarkSuccess(s bool) {
+	p.Success = &s
+}
+
+// Failed is a convenience method for checking the success status
+// for a failure.
+func (p *Pipeline) Failed() bool {
+	return p.Success != nil && *p.Success == false
 }
 
 // SetStart is a convenience method for setting the start time pointer.
