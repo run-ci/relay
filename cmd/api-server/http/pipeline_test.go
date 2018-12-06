@@ -2,7 +2,7 @@ package http
 
 import "github.com/run-ci/relay/store"
 
-func (st *memStore) GetPipelines(remote string) (pipelines []store.Pipeline, err error) {
+func (st *memStore) GetPipelines(project int) (pipelines []store.Pipeline, err error) {
 	// pipelines := []store.Pipeline{}
 	// for _, pipeline := range st.pipelinedb {
 	// 	if remote == "" || remote == pipeline.Remote {
