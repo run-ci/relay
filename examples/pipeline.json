@@ -1,6 +1,9 @@
 {
-    "remote": "https://github.com/run-ci/runlet",
-    "name": "default",
+    "git_remote": {
+        "url": "https://github.com/run-ci/relay.git",
+        "branch": "master"
+    },
+    "name": "docker",
     "steps": [
         {
             "name": "write_log",

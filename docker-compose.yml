@@ -45,3 +45,5 @@ services:
     - POSTGRES_USER
     - POSTGRES_PASSWORD
     - POSTGRES_DB
+    volumes:
+    - ./dev/seed_db.sql:/docker-entrypoint-initdb.d/seed_db.sql

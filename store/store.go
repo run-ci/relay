@@ -19,55 +19,78 @@ func init() {
 	})
 }
 
+// ErrNoPipelines is an error returned when a method of a RelayStore
+// doesn't find any pipelines.
+var ErrNoPipelines = errors.New("no pipelines found")
+
 // RelayStore is an all-encompassing interface for all the behaviors
 // a store can exhibit.
 type RelayStore interface {
-	GitRepoStore
-	PipelineStore
-}
+	// CreateProject saves a project in the store, setting whatever
+	// values on the input that need to be set at create-time.
+	CreateProject(*Project) error
+	// GetProject returns a Project with its GitRemotes. It doesn't
+	// fetch the actual pipelines in those remotes.
+	GetProject(id int) (Project, error)
+	// GetProjects returns a preview list of Projects, without any
+	// information as to what's inside those Projects.
+	GetProjects() ([]Project, error)
 
-// GitRepoStore is anything that can hold data about source repositories.
-type GitRepoStore interface {
-	CreateGitRepo(GitRepo) error
-	GetGitRepo(string, string) (GitRepo, error)
-	GetGitRepos() ([]GitRepo, error)
-}
+	GetPipelines(projectid int) ([]Pipeline, error)
+	// GetPipelineID takes these fields because it's the only way to
+	// identify a pipeline before the ID is known. If there are no
+	// pipelines matching these filters, implementations should return
+	// ErrNoPipelines.
+	GetPipelineID(GitRemote, string) (int, error)
 
-// GitRepo is a Git repository.
-type GitRepo struct {
-	Remote string
-	Branch string
-}
-
-// PipelineQuerier is an interface defining the behavior of an entity
-// that can query a store for pipeline information.
-type PipelineQuerier interface {
-	GetPipelines(remote string) ([]Pipeline, error)
-	ReadPipeline(spec *Pipeline) error
-}
-
-// PipelineStore is an interface defining what a thing that can store
-// pipelines should be able to do. All its members take pointers and
-// update data in place instead of returning new values.
-type PipelineStore interface {
+	// These Create* methods save their respective resources in
+	// the store, setting create-time values on the input.
+	CreatePipeline(*Pipeline) error
 	CreateRun(*Run) error
 	CreateStep(*Step) error
 	CreateTask(*Task) error
 
+	// These Update* methods update their respective resources in
+	// the store, setting update-time values on the input if there
+	// are any.
+	UpdatePipeline(*Pipeline) error
 	UpdateRun(*Run) error
 	UpdateStep(*Step) error
 	UpdateTask(*Task) error
-
-	PipelineQuerier
 }
 
-// Pipeline is a series of "runs" grouped together by a repository's URL
-// and the pipeline's name.
+// Project is a grouping of different pipelines by their remotes.
+type Project struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+
+	GitRemotes []GitRemote `json:"git_remotes,omitempty"`
+}
+
+// GitRemote is the remote location of a Git repository, specified
+// by the URL and branch name.
+type GitRemote struct {
+	URL    string `json:"url"`
+	Branch string `json:"branch"`
+
+	Pipelines []Pipeline `json:"pipelines,omitempty"`
+}
+
+// Pipeline is a grouping of steps with a name associated.
 type Pipeline struct {
-	Remote string `json:"remote"`
-	Name   string `json:"name"`
-	Ref    string `json:"ref"`
-	Runs   []Run  `json:"runs"`
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Success *bool  `json:"success"`
+
+	GitRemote GitRemote `json:"git_remote"`
+	ProjectID int       `json:"project_id"`
+
+	// The steps are accessed run by run because a pipeline
+	// can be updated to have different steps. Placing them
+	// directly on the pipeline itself would mean that the
+	// data from previous runs could be mangled.
+	Runs []Run `json:"runs,omitempty"`
 }
 
 // Run is a representation of the actual state of execution of a pipeline.
@@ -76,10 +99,12 @@ type Run struct {
 	Start   *time.Time `json:"start"`
 	End     *time.Time `json:"end"`
 	Success *bool      `json:"success"` // mid-run is neither success nor failure
-	Steps   []Step     `json:"steps"`
 
-	PipelineRemote string `json:"-"`
-	PipelineName   string `json:"-"`
+	// This attribute is necessary to have here because a run can only be
+	// identified by the combination of its pipeline and its place.
+	PipelineID int `json:"pipeline_id"`
+
+	Steps []Step `json:"steps"`
 }
 
 // Step is the representation of the actual state of execution of a group of
@@ -92,9 +117,8 @@ type Step struct {
 	Tasks   []Task     `json:"tasks"`
 	Success *bool      `json:"success"` // mid-run is neither success nor failure
 
-	PipelineRemote string `json:"-"`
-	PipelineName   string `json:"-"`
-	RunCount       int    `json:"-"`
+	PipelineID int `json:"-"`
+	RunCount   int `json:"-"`
 }
 
 // Task is the representation of the actual state of execution of a pipeline
@@ -107,6 +131,17 @@ type Task struct {
 	Success *bool      `json:"success"` // mid-run is neither success nor failure
 
 	StepID int `json:"-"`
+}
+
+// MarkSuccess is a convenience method for setting the success status.
+func (p *Pipeline) MarkSuccess(s bool) {
+	p.Success = &s
+}
+
+// Failed is a convenience method for checking the success status
+// for a failure.
+func (p *Pipeline) Failed() bool {
+	return p.Success != nil && *p.Success == false
 }
 
 // SetStart is a convenience method for setting the start time pointer.

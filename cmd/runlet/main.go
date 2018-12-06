@@ -81,34 +81,46 @@ func main() {
 			continue
 		}
 
-		vol := initCIVolume(agent, client, ev.Remote)
-
-		p := &store.Pipeline{
-			Remote: ev.Remote,
-			Name:   ev.Name,
-		}
+		vol := initCIVolume(agent, client, ev.GitRemote)
 
 		logger := logger.WithFields(log.Fields{
-			"pipeline_remote": p.Remote,
-			"pipeline_name":   p.Name,
+			"git_remote":    ev.GitRemote.URL,
+			"git_branch":    ev.GitRemote.Branch,
+			"pipeline_name": ev.Name,
 		})
 
 		logger.Debug("loading pipeline")
 
-		err = st.ReadPipeline(p)
-		if err != nil {
-			logger.WithField("error", err).Error("error loading pipeline from store, skipping")
+		var pipeline store.Pipeline
+		pipeline.ID, err = st.GetPipelineID(ev.GitRemote, ev.Name)
+		if err != nil && err != store.ErrNoPipelines {
+			logger.WithField("error", err).Error("error loading pipeline from store, skipping this run")
 
 			continue
 		}
+		if err == store.ErrNoPipelines {
+			logger.Info("no pipeline found, creating one")
 
-		start := time.Now()
-		r := store.Run{
-			Start:          &start,
-			PipelineName:   p.Name,
-			PipelineRemote: p.Remote,
+			p := store.Pipeline{
+				Name:      ev.Name,
+				GitRemote: ev.GitRemote,
+			}
+			err := st.CreatePipeline(&p)
+			if err != nil {
+				logger.WithField("error", err).Error("unable to create pipeline, skipping this run")
+
+				continue
+			}
+
+			pipeline = p
 		}
-		p.Runs = append(p.Runs, r)
+
+		logger.Debugf("got pipeline %+v", pipeline)
+
+		r := store.Run{
+			PipelineID: pipeline.ID,
+		}
+		r.SetStart()
 
 		logger.Debug("creating new pipeline run")
 
@@ -136,11 +148,10 @@ func main() {
 
 			start := time.Now()
 			s := store.Step{
-				Name:           step.Name,
-				Start:          &start,
-				RunCount:       r.Count,
-				PipelineName:   r.PipelineName,
-				PipelineRemote: r.PipelineRemote,
+				Name:       step.Name,
+				Start:      &start,
+				RunCount:   r.Count,
+				PipelineID: pipeline.ID,
 			}
 			r.Steps = append(r.Steps, s)
 
@@ -149,6 +160,8 @@ func main() {
 				logger.WithField("error", err).Error("unable to save step, aborting")
 
 				s.MarkSuccess(false)
+				pipeline.MarkSuccess(false)
+
 				break
 			}
 
@@ -171,6 +184,8 @@ func main() {
 
 					s.MarkSuccess(false)
 					r.MarkSuccess(false)
+					pipeline.MarkSuccess(false)
+
 					break
 				}
 
@@ -266,6 +281,12 @@ func main() {
 			logger.WithFields(log.Fields{
 				"error": err,
 			}).Error("unable to save run")
+		}
+
+		pipeline.MarkSuccess(true)
+		err = st.UpdatePipeline(&pipeline)
+		if err != nil {
+			logger.WithError(err).Error("unable to save pipeline")
 		}
 	}
 }
