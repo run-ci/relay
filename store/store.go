@@ -9,19 +9,23 @@ import (
 
 var logger *log.Entry
 
-// ErrPipelineNotFound is what's returned when a pipeline couldn't
-// be found in the store.
-var ErrPipelineNotFound = errors.New("pipeline not found")
+var (
+	// ErrPipelineNotFound is what's returned when a pipeline couldn't
+	// be found in the store.
+	ErrPipelineNotFound = errors.New("pipeline not found")
+	// ErrNoPipelines is an error returned when a method of a RelayStore
+	// doesn't find any pipelines.
+	ErrNoPipelines = errors.New("no pipelines found")
+	// ErrRunNotFound is an error returned when a run isn't found for a
+	// given pipeline.
+	ErrRunNotFound = errors.New("run not found")
+)
 
 func init() {
 	logger = log.WithFields(log.Fields{
 		"package": "store",
 	})
 }
-
-// ErrNoPipelines is an error returned when a method of a RelayStore
-// doesn't find any pipelines.
-var ErrNoPipelines = errors.New("no pipelines found")
 
 // RelayStore is an all-encompassing interface for all the behaviors
 // a store can exhibit. The interface is massive, but all this is included
@@ -46,6 +50,11 @@ type RelayStore interface {
 	// pipelines matching these filters, implementations should return
 	// ErrNoPipelines.
 	GetPipelineID(GitRemote, string) (int, error)
+
+	// GetRun returns the nth run for the pipeline with the passed
+	// in ID from the store. If a run with that count isn't found
+	// for whatever reason, ErrRunNotFound is returned.
+	GetRun(pid, n int) (Run, error)
 
 	// These Create* methods save their respective resources in
 	// the store, setting create-time values on the input.
@@ -118,11 +127,12 @@ type Step struct {
 	Name    string     `json:"name"`
 	Start   *time.Time `json:"start"`
 	End     *time.Time `json:"end"`
-	Tasks   []Task     `json:"tasks"`
 	Success *bool      `json:"success"` // mid-run is neither success nor failure
 
 	PipelineID int `json:"-"`
 	RunCount   int `json:"-"`
+
+	Tasks []Task `json:"tasks,omitempty"`
 }
 
 // Task is the representation of the actual state of execution of a pipeline

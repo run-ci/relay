@@ -211,6 +211,8 @@ func TestGetPipeline(t *testing.T) {
 		t.Fatalf("expected GitRemote.Branch %v, got %v", test.expected.GitRemote.Branch, test.actual.GitRemote.Branch)
 	}
 
+	// TODO: test runs
+
 }
 
 // TODO: test pipeline not found returns 404

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	_ "github.com/lib/pq" // load the postgres driver
+	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -469,4 +470,54 @@ func (st *Postgres) UpdateTask(t *Task) error {
 	logger.Debug("step task saved")
 
 	return nil
+}
+
+// GetRun returns the nth run of the pipeline with the given ID. If the run
+// isn't found it returns ErrRunNotFound.
+func (st *Postgres) GetRun(pid, n int) (Run, error) {
+	logger := logger.WithFields(logrus.Fields{
+		"pipeline_id": pid,
+		"count":       n,
+	})
+	logger.Debug("getting run from postgres")
+
+	sqlq := `
+	SELECT r.start_time, r.end_time, r.success,
+		s.id, s.name, s.start_time, s.end_time, s.success
+	FROM runs AS r
+	INNER JOIN steps AS s
+	ON r.count = s.run_count
+		AND r.pipeline_id = s.pipeline_id
+	WHERE r.pipeline_id = $1 AND r.count = $2
+	`
+
+	r := Run{
+		PipelineID: pid,
+		Count:      n,
+	}
+	rows, err := st.db.Query(sqlq, pid, n)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query database")
+		return r, err
+	}
+
+	for rows.Next() {
+		s := Step{
+			PipelineID: pid,
+			RunCount:   n,
+		}
+
+		// It's safe to always overwrite `r` here because these values
+		// should always be the same.
+		err := rows.Scan(&r.Start, &r.End, &r.Success,
+			&s.ID, &s.Name, &s.Start, &s.End, &s.Success)
+		if err != nil {
+			logger.WithError(err).Debug("unable to scan row")
+			return r, err
+		}
+
+		r.Steps = append(r.Steps, s)
+	}
+
+	return r, nil
 }
