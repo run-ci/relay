@@ -108,7 +108,7 @@ type Run struct {
 	// identified by the combination of its pipeline and its place.
 	PipelineID int `json:"pipeline_id"`
 
-	Steps []Step `json:"steps"`
+	Steps []Step `json:"steps,omitempty"`
 }
 
 // Step is the representation of the actual state of execution of a group of

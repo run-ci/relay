@@ -176,26 +176,39 @@ func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
 	logger.Debug("getting pipeline from postgres")
 
 	sqlq := `
-	SELECT name, success, remote_url, remote_branch, project_id
-	FROM pipelines
-	WHERE id = $1
+	SELECT p.name, p.success, p.remote_url, p.remote_branch, p.project_id,
+		r.count, r.start_time, r.end_time, r.success
+	FROM pipelines AS p
+	INNER JOIN runs AS r
+	ON p.id = r.pipeline_id
+	WHERE p.id = $1;
 	`
 
-	var pipeline Pipeline
-	err := st.db.QueryRow(sqlq, id).Scan(
-		&pipeline.Name,
-		&pipeline.Success,
-		&pipeline.GitRemote.URL,
-		&pipeline.GitRemote.Branch,
-		&pipeline.ProjectID,
-	)
+	var p Pipeline
+	rows, err := st.db.Query(sqlq, id)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
+		return p, err
 	}
 
-	pipeline.ID = id
+	for rows.Next() {
+		r := Run{PipelineID: id}
 
-	return pipeline, err
+		// It's safe to always overwrite `p` here because these values
+		// should always be the same.
+		err := rows.Scan(&p.Name, &p.Success, &p.GitRemote.URL, &p.GitRemote.Branch, &p.ProjectID,
+			&r.Count, &r.Start, &r.End, &r.Success)
+		if err != nil {
+			logger.WithError(err).Debug("unable to scan row")
+			return p, err
+		}
+
+		p.Runs = append(p.Runs, r)
+	}
+
+	p.ID = id
+
+	return p, err
 }
 
 // UpdatePipeline is part of the RelayStore interface.
