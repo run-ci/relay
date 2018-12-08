@@ -17,6 +17,7 @@ import (
 type memStore struct {
 	projectdb  map[int]store.Project
 	pipelinedb map[int]store.Pipeline
+	stepdb     map[int]store.Step
 
 	createProject func(proj *store.Project) error
 }

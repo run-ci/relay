@@ -76,6 +76,18 @@ func (st *memStore) seedPipelines() {
 				Branch: d.remoteBranch,
 				URL:    d.remoteURL,
 			},
+			Runs: []store.Run{
+				store.Run{
+					Count:      1,
+					Success:    &d.success,
+					PipelineID: d.id,
+				},
+				store.Run{
+					Count:      2,
+					Success:    &d.success,
+					PipelineID: d.id,
+				},
+			},
 		}
 	}
 }

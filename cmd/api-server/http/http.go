@@ -28,8 +28,8 @@ func init() {
 type apiStore interface {
 	GetPipelines(pid int) ([]store.Pipeline, error)
 	GetPipeline(id int) (store.Pipeline, error)
-
 	GetRun(pid, id int) (store.Run, error)
+	GetStep(id int) (store.Step, error)
 
 	CreateProject(*store.Project) error
 	GetProject(id int) (store.Project, error)
@@ -81,6 +81,9 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 		Methods(http.MethodGet)
 
 	r.Handle("/pipelines/{pid}/runs/{count}", chain(srv.handleGetRun, setRequestID, logRequest)).
+		Methods(http.MethodGet)
+
+	r.Handle("/steps/{id}", chain(srv.handleGetStep, setRequestID, logRequest)).
 		Methods(http.MethodGet)
 
 	return srv

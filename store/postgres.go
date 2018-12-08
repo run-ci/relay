@@ -497,6 +497,7 @@ func (st *Postgres) GetRun(pid, n int) (Run, error) {
 	}
 	rows, err := st.db.Query(sqlq, pid, n)
 	if err != nil {
+		// TODO: if this is ErrNoRows return ErrRunNotFound.
 		logger.WithError(err).Debug("unable to query database")
 		return r, err
 	}
@@ -520,4 +521,60 @@ func (st *Postgres) GetRun(pid, n int) (Run, error) {
 	}
 
 	return r, nil
+}
+
+// GetStep returns the nth run of the pipeline with the given ID. If the Step
+// isn't found it returns ErrStepNotFound.
+func (st *Postgres) GetStep(id int) (Step, error) {
+	logger := logger.WithField("id", id)
+	logger.Debug("getting step from postgres")
+
+	sqlq := `
+	SELECT s.name, s.start_time, s.end_time, s.success,
+		t.id, t.name, t.start_time, t.end_time, t.success
+	FROM steps AS s
+	INNER JOIN tasks AS t
+	ON s.id = t.step_id
+	WHERE s.id = $1
+	`
+
+	s := Step{ID: id}
+	rows, err := st.db.Query(sqlq, id)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query database")
+		return s, err
+	}
+
+	if !rows.Next() {
+		return s, ErrStepNotFound
+	}
+
+	// The loop has to be unrolled to handle the first call to
+	// Next() that was used to check for a result.
+	t := Task{StepID: id}
+	err = rows.Scan(&s.Name, &s.Start, &s.End, &s.Success,
+		&t.ID, &t.Name, &t.Start, &t.End, &t.Success)
+	if err != nil {
+		logger.WithError(err).Debug("unable to scan row")
+		return s, err
+	}
+
+	s.Tasks = append(s.Tasks, t)
+
+	for rows.Next() {
+		t := Task{StepID: id}
+
+		// It's safe to always overwrite `s` here because these values
+		// should always be the same.
+		err := rows.Scan(&s.Name, &s.Start, &s.End, &s.Success,
+			&t.ID, &t.Name, &t.Start, &t.End, &t.Success)
+		if err != nil {
+			logger.WithError(err).Debug("unable to scan row")
+			return s, err
+		}
+
+		s.Tasks = append(s.Tasks, t)
+	}
+
+	return s, nil
 }
