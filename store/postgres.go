@@ -135,9 +135,8 @@ func (st *Postgres) GetProjects() ([]Project, error) {
 // GetPipelines implements the RelayStore interface. It returns a list of all
 // pipelines for the project with the given id.
 func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
-	// TODO: fix bug here. Not returning project or pipeline id.
 	sqlq := `
-	SELECT p.name, p.remote_url, p.remote_branch, p.success
+	SELECT p.id, p.name, p.remote_url, p.remote_branch, p.success
 	FROM pipelines AS p
 	WHERE p.project_id = $1;
 	`
@@ -154,9 +153,11 @@ func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
 
 	ps := []Pipeline{}
 	for rows.Next() {
-		p := Pipeline{}
+		p := Pipeline{
+			ProjectID: pid,
+		}
 
-		err := rows.Scan(&p.Name, &p.GitRemote.URL, &p.GitRemote.Branch, &p.Success)
+		err := rows.Scan(&p.ID, &p.Name, &p.GitRemote.URL, &p.GitRemote.Branch, &p.Success)
 		if err != nil {
 			logger.WithError(err).Debug("unable to scan row")
 
@@ -175,7 +176,7 @@ func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
 	logger.Debug("getting pipeline from postgres")
 
 	sqlq := `
-	SELECT name, success, remote_url, remote_branch
+	SELECT name, success, remote_url, remote_branch, project_id
 	FROM pipelines
 	WHERE id = $1
 	`
@@ -186,10 +187,13 @@ func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
 		&pipeline.Success,
 		&pipeline.GitRemote.URL,
 		&pipeline.GitRemote.Branch,
+		&pipeline.ProjectID,
 	)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 	}
+
+	pipeline.ID = id
 
 	return pipeline, err
 }
