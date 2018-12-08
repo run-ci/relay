@@ -23,6 +23,15 @@ func (st *memStore) GetPipelines(project int) ([]store.Pipeline, error) {
 	return pipelines, nil
 }
 
+func (st *memStore) GetPipeline(id int) (store.Pipeline, error) {
+	p, ok := st.pipelinedb[id]
+	if !ok {
+		return p, store.ErrPipelineNotFound
+	}
+
+	return p, nil
+}
+
 func (st *memStore) seedPipelines() {
 	data := []struct {
 		id           int
