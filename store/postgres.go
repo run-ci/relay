@@ -132,7 +132,10 @@ func (st *Postgres) GetProjects() ([]Project, error) {
 	return ps, nil
 }
 
+// GetPipelines implements the RelayStore interface. It returns a list of all
+// pipelines for the project with the given id.
 func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
+	// TODO: fix bug here. Not returning project or pipeline id.
 	sqlq := `
 	SELECT p.name, p.remote_url, p.remote_branch, p.success
 	FROM pipelines AS p
@@ -166,7 +169,34 @@ func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
 	return ps, nil
 }
 
+// GetPipeline retrieves the Pipeline with the given id from postgres.
+func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
+	logger := logger.WithField("id", id)
+	logger.Debug("getting pipeline from postgres")
+
+	sqlq := `
+	SELECT name, success, remote_url, remote_branch
+	FROM pipelines
+	WHERE id = $1
+	`
+
+	var pipeline Pipeline
+	err := st.db.QueryRow(sqlq, id).Scan(
+		&pipeline.Name,
+		&pipeline.Success,
+		&pipeline.GitRemote.URL,
+		&pipeline.GitRemote.Branch,
+	)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query database")
+	}
+
+	return pipeline, err
+}
+
+// UpdatePipeline is part of the RelayStore interface.
 func (st *Postgres) UpdatePipeline(p *Pipeline) error {
+	// TODO: fix bug here. The finish time is never updated.
 	sqlupdate := `
 	UPDATE pipelines
 	SET success = $1

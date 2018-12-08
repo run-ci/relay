@@ -27,7 +27,7 @@ func init() {
 // interfaces the API needs to work.
 type apiStore interface {
 	GetPipelines(pid int) ([]store.Pipeline, error)
-	// GetPipeline(id int) (store.Pipeline, error)
+	GetPipeline(id int) (store.Pipeline, error)
 
 	CreateProject(*store.Project) error
 	GetProject(id int) (store.Project, error)
@@ -72,7 +72,10 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 
 	// TODO: delete projects
 
-	r.Handle("/pipelines/{project_id}", chain(srv.handleGetPipelines, setRequestID, logRequest)).
+	r.Handle("/projects/{project_id}/pipelines", chain(srv.handleGetPipelines, setRequestID, logRequest)).
+		Methods(http.MethodGet)
+
+	r.Handle("/pipelines/{id}", chain(srv.handleGetPipeline, setRequestID, logRequest)).
 		Methods(http.MethodGet)
 
 	return srv

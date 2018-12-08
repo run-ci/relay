@@ -24,7 +24,10 @@ func init() {
 var ErrNoPipelines = errors.New("no pipelines found")
 
 // RelayStore is an all-encompassing interface for all the behaviors
-// a store can exhibit.
+// a store can exhibit. The interface is massive, but all this is included
+// so that store implementations can be seamlessly swapped out. Consumers
+// should define their own interfaces that use a subset of this interface's
+// functions related to what they're interested in.
 type RelayStore interface {
 	// CreateProject saves a project in the store, setting whatever
 	// values on the input that need to be set at create-time.
@@ -37,6 +40,7 @@ type RelayStore interface {
 	GetProjects() ([]Project, error)
 
 	GetPipelines(projectid int) ([]Pipeline, error)
+	GetPipeline(id int) (Pipeline, error)
 	// GetPipelineID takes these fields because it's the only way to
 	// identify a pipeline before the ID is known. If there are no
 	// pipelines matching these filters, implementations should return
