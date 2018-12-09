@@ -12,16 +12,16 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetStep(id int) (store.Step, error) {
-	s, ok := st.stepdb[id]
+func (st *memStore) GetTask(id int) (store.Task, error) {
+	t, ok := st.taskdb[id]
 	if !ok {
-		return store.Step{}, store.ErrStepNotFound
+		return store.Task{}, store.ErrTaskNotFound
 	}
 
-	return s, nil
+	return t, nil
 }
 
-func (st *memStore) seedSteps() {
+func (st *memStore) seedTasks() {
 	data := []struct {
 		id      int
 		name    string
@@ -29,23 +29,23 @@ func (st *memStore) seedSteps() {
 	}{
 		{
 			id:      1,
-			name:    "default",
+			name:    "build",
 			success: true,
 		},
 		{
 			id:      2,
-			name:    "docker",
+			name:    "test",
 			success: true,
 		},
 		{
 			id:      3,
-			name:    "default",
+			name:    "package",
 			success: false,
 		},
 	}
 
 	for _, d := range data {
-		st.stepdb[d.id] = store.Step{
+		st.taskdb[d.id] = store.Task{
 			ID:      d.id,
 			Name:    d.name,
 			Success: &d.success,
@@ -53,27 +53,28 @@ func (st *memStore) seedSteps() {
 	}
 }
 
-func TestGetStep(t *testing.T) {
+func TestGetTask(t *testing.T) {
 	st := &memStore{
-		stepdb: make(map[int]store.Step),
+		taskdb: make(map[int]store.Task),
 	}
-	st.seedSteps()
+	st.seedTasks()
 
 	srv := NewServer(":9001", make(chan []byte), st)
 
-	// TODO: test a 404
 	test := struct {
 		input    int
-		expected store.Step
-		actual   store.Step
+		expected store.Task
+		actual   store.Task
+		status   int
 	}{
 		input:    1,
-		expected: st.stepdb[1],
-		actual:   store.Step{},
+		expected: st.taskdb[1],
+		actual:   store.Task{},
+		status:   http.StatusOK,
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/steps/{id}", chain(srv.handleGetStep, setRequestID))
+	r.Handle("/steps/{id}", chain(srv.handleGetTask, setRequestID))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -95,8 +96,8 @@ func TestGetStep(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected status code %v, got %v", http.StatusOK, resp.StatusCode)
+	if resp.StatusCode != test.status {
+		t.Fatalf("expected status code %v, got %v", test.status, resp.StatusCode)
 	}
 
 	err = json.Unmarshal(buf, &test.actual)
@@ -115,7 +116,4 @@ func TestGetStep(t *testing.T) {
 	if *test.expected.Success != *test.actual.Success {
 		t.Fatalf("expected Success %v, got %v", test.expected.Success, test.actual.Success)
 	}
-
-	// TODO: test tasks
-
 }

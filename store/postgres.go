@@ -578,3 +578,27 @@ func (st *Postgres) GetStep(id int) (Step, error) {
 
 	return s, nil
 }
+
+// GetTask returns the Task with the given ID. If the Task
+// isn't found it returns ErrTaskNotFound.
+func (st *Postgres) GetTask(id int) (Task, error) {
+	logger := logger.WithField("id", id)
+	logger.Debug("getting Task from postgres")
+
+	sqlq := `
+	SELECT name, start_time, end_time, success, step_id
+	FROM tasks
+	WHERE tasks.id = $1
+	`
+
+	t := Task{ID: id}
+	err := st.db.QueryRow(sqlq, id).Scan(&t.Name, &t.Start, &t.End, &t.Success, &t.StepID)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query row")
+		if err == sql.ErrNoRows {
+			return t, ErrTaskNotFound
+		}
+	}
+
+	return t, err
+}

@@ -19,9 +19,10 @@ var (
 	// ErrRunNotFound is an error returned when a run isn't found for a
 	// given pipeline.
 	ErrRunNotFound = errors.New("run not found")
-	// ErrStepNotFound is an error returned when a Step isn't found for a
-	// given pipeline.
+	// ErrStepNotFound is an error returned when a Step isn't found.
 	ErrStepNotFound = errors.New("step not found")
+	// ErrTaskNotFound is an error returned when a Task isn't found.
+	ErrTaskNotFound = errors.New("task not found")
 )
 
 func init() {
@@ -58,8 +59,14 @@ type RelayStore interface {
 	// in ID from the store. If a run with that count isn't found
 	// for whatever reason, ErrRunNotFound is returned.
 	GetRun(pid, n int) (Run, error)
-
+	// GetStep returns the step with the given ID from the store.
+	// If no step with that ID is found, ErrStepNotFound should
+	// be returned.
 	GetStep(id int) (Step, error)
+	// GetTask returns the Task with the given ID from the store.
+	// If no Task with that ID is found, ErrTaskNotFound should
+	// be returned.
+	GetTask(id int) (Task, error)
 
 	// These Create* methods save their respective resources in
 	// the store, setting create-time values on the input.

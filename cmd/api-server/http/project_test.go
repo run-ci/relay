@@ -18,6 +18,7 @@ type memStore struct {
 	projectdb  map[int]store.Project
 	pipelinedb map[int]store.Pipeline
 	stepdb     map[int]store.Step
+	taskdb     map[int]store.Task
 
 	createProject func(proj *store.Project) error
 }
