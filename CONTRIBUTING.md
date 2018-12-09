@@ -4,27 +4,33 @@ You can find all the components laid out in `cmd`. Everything at
 the top level is just packages that are common to the whole CI
 system, like for the database.
 
-## General Guidelines
+## Prerequisites
 
-**Always** source an environment from the `env` directory.
-For local development `env/local` works fine.
+The only two things you should need to work with this repository
+are the Docker daemon and the Run CLI.
 
-By default, Go build will use the module cache to build
-the binaries. Because Run task containers are ephemeral,
-this means that the entire module cache needs to be downloaded
-on every build. You can avoid this by running the following
-before you get started:
-
-```
-run vendor
-export GO_MOD_BUILD_MODE=vendor
-```
+Unfortunately, because the Run CLI doesn't support local networking
+(yet), it's not possible to test builds locally using it.
 
 For testing behavior with NATS, you'll need a NATS client.
 The NATS ruby gem works fine. You can install it with:
 
 ```bash
 gem install nats
+```
+
+## General Guidelines
+
+**Always** source an environment from the `env` directory.
+For local development `env/local` works fine.
+
+For the build tasks to work, there needs to be an image
+present in your Docker environment called `relay-dev` that
+contains all the dependencies in the Go module cache. To
+build that image, run the `vendor` task:
+
+```
+run vendor
 ```
 
 ## api-server

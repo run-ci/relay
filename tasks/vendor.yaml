@@ -2,19 +2,24 @@
 summary: Vendor Go dependencies.
 
 description: |
-  Go ignores the vendor folder by default when building
-  with modules. This means that for every run of the build-*
-  tasks, all the project's dependencies will need to be
-  downloaded.
-  
-  To avoid this, the local tasks can use the vendor folder
-  if you choose to download it with this task.
+  Go's new module system is moving the tooling away from vendoring and towards
+  downloading packages from immutable proxy caches. The issue this raises with
+  using tasks is tasks run in ephemeral containers, which means the module
+  cache needs to be warmed on every task run.
 
-image: golang:1.11-stretch
+  To get around this, the task files use a custom image, `relay-dev`, built
+  using `Dockerfile.dev`. This does the job of warming the cache and bundling
+  it in the container image to be used by other tasks.
 
-mount: /go/src/github.com/run-ci/relay
+  The `relay-dev` image is built using this task.
 
-command: go mod vendor
+  If package dependencies change, the task files will have to download only
+  the changes on every run. If that starts to take too long, just run this
+  task again to rebuild the image and save the new dependencies.
+
+image: docker:latest
+
+command: docker build -t relay-dev -f Dockerfile.dev .
 
 arguments:
   GOOS:

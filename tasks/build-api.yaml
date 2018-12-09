@@ -8,19 +8,12 @@ description: |
   This task runs in a Linux container. If working on Mac OS
   make sure to set GOOS appropriately.
 
-image: golang:1.11-stretch
+image: relay-dev
 
-mount: /go/src/github.com/run-ci/relay
-
-command: go build -mod $GO_MOD_BUILD_MODE -o build/relay-api-server -v ./cmd/api-server
+command: go build -o build/relay-api-server -v ./cmd/api-server
 
 arguments:
   GOOS:
     description: Platform to build for.
     default: linux
-  GO111MODULE:
-    description: Use the new Go modules stuff.
-    default: on
-  GO_MOD_BUILD_MODE:
-    description: The build mode to use for `go build -mod=`
-    default: readonly
+
