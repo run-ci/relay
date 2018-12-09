@@ -602,3 +602,18 @@ func (st *Postgres) GetTask(id int) (Task, error) {
 
 	return t, err
 }
+
+// CreateGroup creates the passed in group in the database.
+func (st *Postgres) CreateGroup(g *Group) error {
+	logger := logger.WithField("name", g.Name)
+	logger.Debug("saving group")
+
+	sqlq := `
+	INSERT INTO groups (name)
+	VALUES
+		($1)
+	`
+
+	_, err := st.db.Exec(sqlq, g.Name)
+	return err
+}

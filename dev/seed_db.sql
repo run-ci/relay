@@ -5,3 +5,7 @@ VALUES
 INSERT INTO git_remotes (url, branch, project_id)
 SELECT 'https://github.com/run-ci/relay.git', 'master', projects.id
 FROM projects WHERE projects.name = 'Relay';
+
+INSERT INTO groups (name)
+VALUES
+    ('relay_default');

@@ -82,6 +82,8 @@ type RelayStore interface {
 	UpdateRun(*Run) error
 	UpdateStep(*Step) error
 	UpdateTask(*Task) error
+
+	CreateGroup(*Group) error
 }
 
 // Project is a grouping of different pipelines by their remotes.
@@ -157,6 +159,21 @@ type Task struct {
 	Success *bool      `json:"success"` // mid-run is neither success nor failure
 
 	StepID int `json:"-"`
+}
+
+// User is an entity that's authorized to interact with the CI system.
+type User struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+
+	Group Group `json:"group"`
+}
+
+// Group is an aggregate of users to make things like assigning permissions
+// to multiple users easer.
+type Group struct {
+	Name string
 }
 
 // MarkSuccess is a convenience method for setting the success status.
