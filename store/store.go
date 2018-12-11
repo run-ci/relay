@@ -25,6 +25,13 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 )
 
+var (
+	// DefaultGroup is the group that everything belongs to by default.
+	DefaultGroup = Group{
+		Name: "default",
+	}
+)
+
 func init() {
 	logger = log.WithFields(log.Fields{
 		"package": "store",
@@ -84,6 +91,7 @@ type RelayStore interface {
 	UpdateTask(*Task) error
 
 	CreateGroup(*Group) error
+	CreateUser(*User) error
 }
 
 // Project is a grouping of different pipelines by their remotes.

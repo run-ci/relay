@@ -6,6 +6,7 @@ import (
 	_ "github.com/lib/pq" // load the postgres driver
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Postgres is a PostgreSQL database that's also a PipelineStore.
@@ -615,5 +616,31 @@ func (st *Postgres) CreateGroup(g *Group) error {
 	`
 
 	_, err := st.db.Exec(sqlq, g.Name)
+	return err
+}
+
+// CreateUser creates the passed in user in the database.
+func (st *Postgres) CreateUser(u *User) error {
+	logger := logger.WithField("email", u.Email)
+	logger.Debug("saving user")
+
+	if u.Group.Name == "" {
+		logger.Debugf("got user with no group, setting to %v", DefaultGroup.Name)
+		u.Group = DefaultGroup
+	}
+
+	password, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		logger.WithError(err).Debug("unable to encrypt password")
+		return err
+	}
+
+	sqlq := `
+	INSERT INTO users (email, name, password, group_name)
+	VALUES
+		($1, $2, $3, $4)
+	`
+
+	_, err = st.db.Exec(sqlq, u.Email, u.Name, password, u.Group.Name)
 	return err
 }
