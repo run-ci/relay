@@ -1,0 +1,16 @@
+---
+# These keys follow the default conventions used by the YAML package.
+# For more info see https://godoc.org/gopkg.in/yaml.v2#Unmarshal.
+
+groups:
+  - name: relay_default
+    users:
+      - email: relay_admin@local
+        password: password
+
+projects:
+  - name: Relay
+    description: The CI system for users
+    gitremotes:
+      - url: https://github.com/run-ci/relay.git
+        branch: master
