@@ -10,7 +10,7 @@ import (
 )
 
 func usage() {
-	fmt.Println("usage: go run dev/seed-db/main.go $POSTGRES_CONNECTION_STRING $DATA_YAML_PATH")
+	fmt.Println("usage: go run dev/seed-db/main.go $DATA_YAML_PATH $POSTGRES_CONNECTION_STRING")
 }
 
 func main() {
