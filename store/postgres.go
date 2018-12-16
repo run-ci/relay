@@ -47,7 +47,30 @@ func (st *Postgres) CreateProject(p *Project) error {
 
 	// Using QueryRow because the insert is returning "count".
 	err := st.db.QueryRow(sqlinsert, p.Name, p.Description).
-		Scan(p.ID)
+		Scan(&p.ID)
+
+	if err != nil {
+		logger.WithField("error", err).
+			Debug("unable to create project")
+	}
+	return err
+}
+
+// CreateGitRemote stores the passed in GitRemote in Postgres.
+func (st *Postgres) CreateGitRemote(r *GitRemote) error {
+	logger := logger.WithFields(logrus.Fields{
+		"url":    r.URL,
+		"branch": r.Branch,
+	})
+	logger.Debug("saving remote to postgres")
+
+	sqlinsert := `
+	INSERT INTO git_remotes (url, branch, project_id)
+	VALUES
+		($1, $2, $3)
+	`
+
+	_, err := st.db.Exec(sqlinsert, r.URL, r.Branch, r.ProjectID)
 
 	if err != nil {
 		logger.WithField("error", err).

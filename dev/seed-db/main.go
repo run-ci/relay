@@ -23,14 +23,14 @@ func main() {
 
 	args := os.Args[2:]
 
-	connstr := args[0]
-	if connstr == "" {
+	path := args[0]
+	if path == "" {
 		usage()
 		return
 	}
 
-	path := args[1]
-	if path == "" {
+	connstr := args[1]
+	if connstr == "" {
 		usage()
 		return
 	}
@@ -56,7 +56,48 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("got data %+v", d)
+	db, err := store.NewPostgres(connstr)
+	if err != nil {
+		fmt.Printf("got error connecting to postgres: %v", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("inserting default group")
+	err = db.CreateGroup(&store.DefaultGroup)
+	if err != nil {
+		fmt.Printf("got error inserting group: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("inserting default user")
+	err = db.CreateUser(&store.DefaultUser)
+	if err != nil {
+		fmt.Printf("got error inserting default user: %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, proj := range d.Projects {
+		fmt.Printf("inserting project %v\n", proj.Name)
+
+		err := db.CreateProject(&proj)
+		if err != nil {
+			fmt.Printf("got error inserting project: %v\n", err)
+			os.Exit(1)
+		}
+
+		for _, remote := range proj.GitRemotes {
+			fmt.Printf("inserting git remote %v#%v\n", remote.URL, remote.Branch)
+
+			remote.ProjectID = proj.ID
+			err := db.CreateGitRemote(&remote)
+			if err != nil {
+				fmt.Printf("error inserting git remote: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	}
+
+	fmt.Println("done!")
 }
 
 type data struct {
