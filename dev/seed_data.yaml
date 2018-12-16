@@ -2,12 +2,12 @@
 # These keys follow the default conventions used by the YAML package.
 # For more info see https://godoc.org/gopkg.in/yaml.v2#Unmarshal.
 
-groups:
-  - name: relay_default
-    users:
-      - email: relay_admin@local
-        password: password
-
+# The data must be associated in the YAML file so that when it's loaded
+# it can all be processed in the correct order. This is necessary because
+# there's no way of knowing some foreign keys, like IDs, beforehand. The
+# only way to know that a git remote belongs to a project is by associating
+# it with that project directly, until that project is saved in the database
+# and has an ID to formalize the association with.
 projects:
   - name: Relay
     description: The CI system for users
