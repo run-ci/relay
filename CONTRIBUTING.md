@@ -49,6 +49,7 @@ nats-sub pollers
 
 # In yet another window
 source env/local
+go run dev/seed-db/main.go -- dev/seed_data.yaml postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=$RELAY_POSTGRES_SSL
 curl -XPOST -d@./examples/git-repo.json http://localhost:9001/repos/git
 curl -XGET http://localhost:9001/repos/git
 ```
@@ -64,6 +65,8 @@ source env/local
 run build-runlet
 docker-compose down && docker-compose up
 
-# In another window, trigger a pipeline run
+# In another window, seed the database and trigger a pipeline run.
+source env/local
+go run dev/seed-db/main.go -- dev/seed_data.yaml postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=$RELAY_POSTGRES_SSL
 nats-pub pipelines "$(cat examples/pipeline.json)"
 ```

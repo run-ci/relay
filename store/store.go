@@ -30,6 +30,16 @@ var (
 	DefaultGroup = Group{
 		Name: "default",
 	}
+
+	// DefaultUser is the first user the store should be seeded with. It's
+	// only for bootstrapping other users. This user has no password so
+	// make sure to lock it down.
+	DefaultUser = User{
+		Name: "default",
+
+		// Remember to delete this user once you've bootstrapped. :)
+		Password: "",
+	}
 )
 
 func init() {
@@ -53,6 +63,8 @@ type RelayStore interface {
 	// GetProjects returns a preview list of Projects, without any
 	// information as to what's inside those Projects.
 	GetProjects() ([]Project, error)
+
+	CreateGitRemote(*GitRemote) error
 
 	GetPipelines(projectid int) ([]Pipeline, error)
 	GetPipeline(id int) (Pipeline, error)
@@ -108,6 +120,8 @@ type Project struct {
 type GitRemote struct {
 	URL    string `json:"url"`
 	Branch string `json:"branch"`
+
+	ProjectID int `json:"project_id"`
 
 	Pipelines []Pipeline `json:"pipelines,omitempty"`
 }

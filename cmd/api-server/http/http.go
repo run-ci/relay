@@ -75,6 +75,8 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 
 	// TODO: delete projects
 
+	// TODO: create git remote for project
+
 	r.Handle("/projects/{project_id}/pipelines", chain(srv.handleGetPipelines, setRequestID, logRequest)).
 		Methods(http.MethodGet)
 
