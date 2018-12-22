@@ -23,6 +23,8 @@ var (
 	ErrStepNotFound = errors.New("step not found")
 	// ErrTaskNotFound is an error returned when a Task isn't found.
 	ErrTaskNotFound = errors.New("task not found")
+	// ErrNotAuthenticated is an error returned when a user fails to authenticate.
+	ErrNotAuthenticated = errors.New("authentication failed")
 )
 
 var (
@@ -35,7 +37,8 @@ var (
 	// only for bootstrapping other users. This user has no password so
 	// make sure to lock it down.
 	DefaultUser = User{
-		Name: "default",
+		Name:  "default",
+		Email: "default@local-relay",
 
 		// Remember to delete this user once you've bootstrapped. :)
 		Password: "",
@@ -104,6 +107,8 @@ type RelayStore interface {
 
 	CreateGroup(*Group) error
 	CreateUser(*User) error
+
+	Authenticate(user, pass string) error
 }
 
 // Project is a grouping of different pipelines by their remotes.
@@ -113,6 +118,8 @@ type Project struct {
 	Description string `json:"description"`
 
 	GitRemotes []GitRemote `json:"git_remotes,omitempty"`
+
+	User User `json:"user"`
 }
 
 // GitRemote is the remote location of a Git repository, specified

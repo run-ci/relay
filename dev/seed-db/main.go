@@ -79,6 +79,8 @@ func main() {
 	for _, proj := range d.Projects {
 		fmt.Printf("inserting project %v\n", proj.Name)
 
+		proj.User = store.DefaultUser
+
 		err := db.CreateProject(&proj)
 		if err != nil {
 			fmt.Printf("got error inserting project: %v\n", err)

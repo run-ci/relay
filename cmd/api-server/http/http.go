@@ -35,6 +35,8 @@ type apiStore interface {
 	CreateProject(*store.Project) error
 	GetProject(id int) (store.Project, error)
 	GetProjects() ([]store.Project, error)
+
+	Authenticate(user, pass string) error
 }
 
 // Server is a net/http.Server with dependencies like
@@ -91,6 +93,9 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
 
 	r.Handle("/tasks/{id}", chain(srv.handleGetTask, setRequestID, logRequest)).
 		Methods(http.MethodGet)
+
+	r.Handle("/auth", chain(srv.handleAuth, setRequestID, logRequest)).
+		Methods(http.MethodPost)
 
 	return srv
 }

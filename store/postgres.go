@@ -39,14 +39,14 @@ func (st *Postgres) CreateProject(p *Project) error {
 	logger.Debug("saving project to postgres")
 
 	sqlinsert := `
-	INSERT INTO projects (name, description)
+	INSERT INTO projects (name, description, user_email)
 	VALUES
-		($1, $2)
+		($1, $2, $3)
 	RETURNING id;
 	`
 
 	// Using QueryRow because the insert is returning "count".
-	err := st.db.QueryRow(sqlinsert, p.Name, p.Description).
+	err := st.db.QueryRow(sqlinsert, p.Name, p.Description, p.User.Email).
 		Scan(&p.ID)
 
 	if err != nil {
@@ -666,4 +666,33 @@ func (st *Postgres) CreateUser(u *User) error {
 
 	_, err = st.db.Exec(sqlq, u.Email, u.Name, password, u.Group.Name)
 	return err
+}
+
+// Authenticate checks the password for the user with the given email address.
+func (st *Postgres) Authenticate(email, pass string) error {
+	logger := logger.WithField("email", email)
+	logger.Debug("authenticating user")
+
+	sqlq := `
+	SELECT password
+	FROM users
+	WHERE users.email = $1
+	`
+
+	cryptpass := []byte{}
+	err := st.db.QueryRow(sqlq, email).Scan(&cryptpass)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query row")
+		if err == sql.ErrNoRows {
+			return ErrNotAuthenticated
+		}
+	}
+
+	err = bcrypt.CompareHashAndPassword(cryptpass, []byte(pass))
+	if err != nil {
+		logger.WithError(err).Debug("unable to authenticate")
+		return ErrNotAuthenticated
+	}
+
+	return nil
 }
