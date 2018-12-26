@@ -39,14 +39,14 @@ func (st *Postgres) CreateProject(p *Project) error {
 	logger.Debug("saving project to postgres")
 
 	sqlinsert := `
-	INSERT INTO projects (name, description)
+	INSERT INTO projects (name, description, user_email)
 	VALUES
-		($1, $2)
+		($1, $2, $3)
 	RETURNING id;
 	`
 
 	// Using QueryRow because the insert is returning "count".
-	err := st.db.QueryRow(sqlinsert, p.Name, p.Description).
+	err := st.db.QueryRow(sqlinsert, p.Name, p.Description, p.User.Email).
 		Scan(&p.ID)
 
 	if err != nil {
@@ -124,14 +124,20 @@ func (st *Postgres) GetProject(id int) (Project, error) {
 }
 
 // GetProjects retrieves all Projects from Postgres.
-func (st *Postgres) GetProjects() ([]Project, error) {
+func (st *Postgres) GetProjects(user string) ([]Project, error) {
 	logger.Debug("fetching all projects from postgres")
 
 	sqlq := `
-	SELECT id, name, description FROM projects;
+	SELECT p.id, p.name, p.description, u.email, u.name, g.name
+	FROM projects AS p
+	INNER JOIN users AS u
+	ON p.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE u.email = $1;
 	`
 
-	rows, err := st.db.Query(sqlq)
+	rows, err := st.db.Query(sqlq, user)
 	if err != nil {
 		logger.WithField("error", err).Debug("unable to query database")
 		return nil, err
@@ -141,7 +147,8 @@ func (st *Postgres) GetProjects() ([]Project, error) {
 	for rows.Next() {
 		p := Project{}
 		var desc sql.NullString
-		err := rows.Scan(&p.ID, &p.Name, &desc)
+		err := rows.Scan(&p.ID, &p.Name, &desc,
+			&p.User.Email, &p.User.Name, &p.User.Group.Name)
 		if err != nil {
 			logger.WithField("error", err).Debug("unable to scan row")
 			return ps, err
@@ -666,4 +673,33 @@ func (st *Postgres) CreateUser(u *User) error {
 
 	_, err = st.db.Exec(sqlq, u.Email, u.Name, password, u.Group.Name)
 	return err
+}
+
+// Authenticate checks the password for the user with the given email address.
+func (st *Postgres) Authenticate(email, pass string) error {
+	logger := logger.WithField("email", email)
+	logger.Debug("authenticating user")
+
+	sqlq := `
+	SELECT password
+	FROM users
+	WHERE users.email = $1
+	`
+
+	cryptpass := []byte{}
+	err := st.db.QueryRow(sqlq, email).Scan(&cryptpass)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query row")
+		if err == sql.ErrNoRows {
+			return ErrNotAuthenticated
+		}
+	}
+
+	err = bcrypt.CompareHashAndPassword(cryptpass, []byte(pass))
+	if err != nil {
+		logger.WithError(err).Debug("unable to authenticate")
+		return ErrNotAuthenticated
+	}
+
+	return nil
 }

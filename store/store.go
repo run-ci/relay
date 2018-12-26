@@ -23,6 +23,8 @@ var (
 	ErrStepNotFound = errors.New("step not found")
 	// ErrTaskNotFound is an error returned when a Task isn't found.
 	ErrTaskNotFound = errors.New("task not found")
+	// ErrNotAuthenticated is an error returned when a user fails to authenticate.
+	ErrNotAuthenticated = errors.New("authentication failed")
 )
 
 var (
@@ -35,7 +37,8 @@ var (
 	// only for bootstrapping other users. This user has no password so
 	// make sure to lock it down.
 	DefaultUser = User{
-		Name: "default",
+		Name:  "default",
+		Email: "default@local-relay",
 
 		// Remember to delete this user once you've bootstrapped. :)
 		Password: "",
@@ -61,8 +64,9 @@ type RelayStore interface {
 	// fetch the actual pipelines in those remotes.
 	GetProject(id int) (Project, error)
 	// GetProjects returns a preview list of Projects, without any
-	// information as to what's inside those Projects.
-	GetProjects() ([]Project, error)
+	// information as to what's inside those Projects. This operation
+	// is scoped to a specific user.
+	GetProjects(user string) ([]Project, error)
 
 	CreateGitRemote(*GitRemote) error
 
@@ -104,6 +108,8 @@ type RelayStore interface {
 
 	CreateGroup(*Group) error
 	CreateUser(*User) error
+
+	Authenticate(user, pass string) error
 }
 
 // Project is a grouping of different pipelines by their remotes.
@@ -113,6 +119,8 @@ type Project struct {
 	Description string `json:"description"`
 
 	GitRemotes []GitRemote `json:"git_remotes,omitempty"`
+
+	User User `json:"user"`
 }
 
 // GitRemote is the remote location of a Git repository, specified
@@ -187,7 +195,7 @@ type Task struct {
 type User struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
-	Password string `json:"password"`
+	Password string `json:"password,omitempty"`
 
 	Group Group `json:"group"`
 }
@@ -195,7 +203,7 @@ type User struct {
 // Group is an aggregate of users to make things like assigning permissions
 // to multiple users easer.
 type Group struct {
-	Name string
+	Name string `json:"name"`
 }
 
 // MarkSuccess is a convenience method for setting the success status.

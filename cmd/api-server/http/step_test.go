@@ -59,7 +59,7 @@ func TestGetStep(t *testing.T) {
 	}
 	st.seedSteps()
 
-	srv := NewServer(":9001", make(chan []byte), st)
+	srv := NewServer(":9001", make(chan []byte), st, "test")
 
 	// TODO: test a 404
 	test := struct {

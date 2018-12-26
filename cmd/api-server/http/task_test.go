@@ -59,7 +59,7 @@ func TestGetTask(t *testing.T) {
 	}
 	st.seedTasks()
 
-	srv := NewServer(":9001", make(chan []byte), st)
+	srv := NewServer(":9001", make(chan []byte), st, "test")
 
 	test := struct {
 		input    int
