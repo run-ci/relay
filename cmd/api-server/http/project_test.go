@@ -36,12 +36,12 @@ func (st *memStore) GetProject(id int) (store.Project, error) {
 	return st.projectdb[id], nil
 }
 
-func (st *memStore) GetProjects() ([]store.Project, error) {
-	ret := make([]store.Project, len(st.projectdb))
-	i := 0
+func (st *memStore) GetProjects(user string) ([]store.Project, error) {
+	ret := []store.Project{}
 	for _, proj := range st.projectdb {
-		ret[i] = proj
-		i++
+		if proj.User.Email == user {
+			ret = append(ret, proj)
+		}
 	}
 
 	return ret, nil
@@ -52,12 +52,18 @@ func (st *memStore) seedProjects() {
 		ID:          0,
 		Name:        "test-a",
 		Description: "A project used for testing.",
+		User: store.User{
+			Email: "user@test",
+		},
 	}
 
 	st.projectdb[1] = store.Project{
 		ID:          1,
 		Name:        "test-b",
 		Description: "A project used for testing.",
+		User: store.User{
+			Email: "user@test",
+		},
 	}
 }
 
@@ -133,7 +139,12 @@ func TestGetAllProjects(t *testing.T) {
 	srv := NewServer(":9001", make(chan []byte), st, "test")
 
 	req := httptest.NewRequest(http.MethodGet, "http://test/projects", nil)
-	req = req.WithContext(context.WithValue(context.Background(), keyReqID, "test"))
+	ctx := context.WithValue(
+		context.WithValue(context.Background(), keyReqID, "test"),
+		keyReqSub,
+		"user@test",
+	)
+	req = req.WithContext(ctx)
 	rw := httptest.NewRecorder()
 
 	srv.handleGetProjects(rw, req)
