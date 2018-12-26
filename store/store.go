@@ -64,8 +64,9 @@ type RelayStore interface {
 	// fetch the actual pipelines in those remotes.
 	GetProject(id int) (Project, error)
 	// GetProjects returns a preview list of Projects, without any
-	// information as to what's inside those Projects.
-	GetProjects() ([]Project, error)
+	// information as to what's inside those Projects. This operation
+	// is scoped to a specific user.
+	GetProjects(user string) ([]Project, error)
 
 	CreateGitRemote(*GitRemote) error
 
@@ -194,7 +195,7 @@ type Task struct {
 type User struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
-	Password string `json:"password"`
+	Password string `json:"password,omitempty"`
 
 	Group Group `json:"group"`
 }
@@ -202,7 +203,7 @@ type User struct {
 // Group is an aggregate of users to make things like assigning permissions
 // to multiple users easer.
 type Group struct {
-	Name string
+	Name string `json:"name"`
 }
 
 // MarkSuccess is a convenience method for setting the success status.

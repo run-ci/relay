@@ -88,11 +88,15 @@ func (srv *Server) handleCreateProject(rw http.ResponseWriter, req *http.Request
 
 func (srv *Server) handleGetProjects(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
-	logger := logger.WithField("request_id", reqID)
+	reqSub := req.Context().Value(keyReqSub).(string)
+	logger := logger.WithFields(logrus.Fields{
+		"request_id":      reqID,
+		"request_subject": reqSub,
+	})
 
 	logger.Debug("retrieving projects from database")
 
-	projects, err := srv.st.GetProjects()
+	projects, err := srv.st.GetProjects(reqSub)
 	if err != nil {
 		logger.WithError(err).Error("unable to retrieve projects from database")
 

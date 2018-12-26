@@ -39,7 +39,7 @@ type apiStore interface {
 
 	CreateProject(*store.Project) error
 	GetProject(id int) (store.Project, error)
-	GetProjects() ([]store.Project, error)
+	GetProjects(user string) ([]store.Project, error)
 
 	Authenticate(user, pass string) error
 }

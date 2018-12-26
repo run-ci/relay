@@ -124,14 +124,20 @@ func (st *Postgres) GetProject(id int) (Project, error) {
 }
 
 // GetProjects retrieves all Projects from Postgres.
-func (st *Postgres) GetProjects() ([]Project, error) {
+func (st *Postgres) GetProjects(user string) ([]Project, error) {
 	logger.Debug("fetching all projects from postgres")
 
 	sqlq := `
-	SELECT id, name, description FROM projects;
+	SELECT p.id, p.name, p.description, u.email, u.name, g.name
+	FROM projects AS p
+	INNER JOIN users AS u
+	ON p.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE u.email = $1;
 	`
 
-	rows, err := st.db.Query(sqlq)
+	rows, err := st.db.Query(sqlq, user)
 	if err != nil {
 		logger.WithField("error", err).Debug("unable to query database")
 		return nil, err
@@ -141,7 +147,8 @@ func (st *Postgres) GetProjects() ([]Project, error) {
 	for rows.Next() {
 		p := Project{}
 		var desc sql.NullString
-		err := rows.Scan(&p.ID, &p.Name, &desc)
+		err := rows.Scan(&p.ID, &p.Name, &desc,
+			&p.User.Email, &p.User.Name, &p.User.Group.Name)
 		if err != nil {
 			logger.WithField("error", err).Debug("unable to scan row")
 			return ps, err
