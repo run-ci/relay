@@ -75,7 +75,7 @@ func TestPostProject(t *testing.T) {
 		return nil
 	}
 
-	srv := NewServer(":9001", send, st)
+	srv := NewServer(":9001", send, st, "test")
 
 	proj := map[string]string{
 		"name":        "test-create-project",
@@ -130,7 +130,7 @@ func TestGetAllProjects(t *testing.T) {
 	}
 	st.seedProjects()
 
-	srv := NewServer(":9001", make(chan []byte), st)
+	srv := NewServer(":9001", make(chan []byte), st, "test")
 
 	req := httptest.NewRequest(http.MethodGet, "http://test/projects", nil)
 	req = req.WithContext(context.WithValue(context.Background(), keyReqID, "test"))
@@ -180,7 +180,7 @@ func TestGetProject(t *testing.T) {
 	}
 	st.seedProjects()
 
-	srv := NewServer(":9001", make(chan []byte), st)
+	srv := NewServer(":9001", make(chan []byte), st, "test")
 
 	test := struct {
 		input    int

@@ -31,7 +31,7 @@ func TestGetRun(t *testing.T) {
 	}
 	st.seedPipelines()
 
-	srv := NewServer(":9001", make(chan []byte), st)
+	srv := NewServer(":9001", make(chan []byte), st, "test")
 
 	test := struct {
 		input    int

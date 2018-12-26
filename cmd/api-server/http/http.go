@@ -2,10 +2,13 @@ package http
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/run-ci/relay/store"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -17,6 +20,7 @@ type ctxkey int
 
 const (
 	keyReqID ctxkey = iota
+	keyReqSub
 )
 
 func init() {
@@ -143,5 +147,59 @@ func logRequest(f http.HandlerFunc) http.HandlerFunc {
 		logger.Infof("%v %v", req.Method, req.URL)
 
 		f(rw, req)
+	}
+}
+
+func (srv *Server) checkAuth(f http.HandlerFunc) http.HandlerFunc {
+	return func(rw http.ResponseWriter, req *http.Request) {
+		hdr := req.Header["Authorization"]
+		if len(hdr) < 2 {
+			err := errors.New("missing bearer token")
+
+			logger.WithError(err).Error("unable to authorize request")
+			writeErrResp(rw, err, http.StatusUnauthorized)
+			return
+		}
+
+		// Tokens come in the form of "Bearer $TOKEN"
+		bearer := hdr[1]
+
+		keyfn := func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				err := errors.New("invalid signing method for bearer token")
+
+				return nil, err
+			}
+
+			return srv.jwtsecret, nil
+		}
+
+		token, err := jwt.ParseWithClaims(bearer, &jwt.StandardClaims{}, keyfn)
+		if err != nil {
+			logger.WithError(err).Error("unable to authorize request")
+			writeErrResp(rw, err, http.StatusUnauthorized)
+			return
+		}
+
+		if claims, ok := token.Claims.(*jwt.StandardClaims); ok && token.Valid {
+			if time.Now().Unix() > claims.ExpiresAt {
+				err := errors.New("token expired")
+				logger.WithError(err).Error("unable to authorize request")
+				writeErrResp(rw, err, http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(req.Context(), keyReqSub, claims.Subject)
+			logger.WithField("sub", claims.Subject).
+				Debug("setting auth subject")
+
+			f(rw, req.WithContext(ctx))
+			return
+		}
+
+		err = errors.New("invalid bearer token")
+		logger.WithError(err).Error("unable to authorize request")
+		writeErrResp(rw, err, http.StatusUnauthorized)
+		return
 	}
 }
