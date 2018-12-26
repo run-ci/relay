@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/run-ci/relay/store"
@@ -75,8 +76,12 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 	r.Handle("/projects", chain(srv.handleCreateProject, setRequestID, logRequest)).
 		Methods(http.MethodPost)
 
-	r.Handle("/projects", chain(srv.handleGetProjects, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/projects", chain(
+		srv.handleGetProjects,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
 	r.Handle("/projects/{id}", chain(srv.handleGetProject, setRequestID, logRequest)).
 		Methods(http.MethodGet)
@@ -152,7 +157,17 @@ func logRequest(f http.HandlerFunc) http.HandlerFunc {
 
 func (srv *Server) checkAuth(f http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
-		hdr := req.Header["Authorization"]
+		hdrline, ok := req.Header["Authorization"]
+		if !ok {
+			err := errors.New("missing bearer token")
+
+			logger.WithError(err).Error("unable to authorize request")
+			writeErrResp(rw, err, http.StatusUnauthorized)
+			return
+		}
+
+		hdr := strings.Split(hdrline[0], " ")
+
 		if len(hdr) < 2 {
 			err := errors.New("missing bearer token")
 

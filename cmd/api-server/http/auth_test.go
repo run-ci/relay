@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -45,7 +46,7 @@ func TestCheckAuth(t *testing.T) {
 
 	// request with format "Bearer $INVALID_TOKEN"
 	reqInvalidBearer := httptest.NewRequest("", "http://test", nil)
-	reqInvalidBearer.Header["Authorization"] = []string{"Bearer", "INVALID"}
+	reqInvalidBearer.Header["Authorization"] = []string{"Bearer INVALID"}
 
 	// TODO: figure out how to test an invalid signature
 	// request with invalid signing method for token
@@ -56,18 +57,18 @@ func TestCheckAuth(t *testing.T) {
 	// request with different signature
 	reqBadSignature := httptest.NewRequest("", "http://test", nil)
 	token = gentoken(time.Now().Add(15*time.Minute), []byte("bad"), jwt.SigningMethodHS256)
-	reqBadSignature.Header["Authorization"] = []string{"Bearer", token}
+	reqBadSignature.Header["Authorization"] = []string{fmt.Sprintf("Bearer %v", token)}
 
 	// request with expired token
 	reqExpiredToken := httptest.NewRequest("", "http://test", nil)
 	token = gentoken(time.Now().Add(-1*time.Minute), jwtsecret, jwt.SigningMethodHS256)
-	reqExpiredToken.Header["Authorization"] = []string{"Bearer", token}
+	reqExpiredToken.Header["Authorization"] = []string{fmt.Sprintf("Bearer %v", token)}
 
 	// RETURNING AUTHORIZED
 	// request with valid token
 	reqValidToken := httptest.NewRequest("", "http://test", nil)
 	token = gentoken(time.Now().Add(15*time.Minute), jwtsecret, jwt.SigningMethodHS256)
-	reqValidToken.Header["Authorization"] = []string{"Bearer", token}
+	reqValidToken.Header["Authorization"] = []string{fmt.Sprintf("Bearer %v", token)}
 
 	type result struct {
 		status int
