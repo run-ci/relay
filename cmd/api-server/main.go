@@ -15,7 +15,7 @@ import (
 
 var logger *logrus.Entry
 
-var pgconnstr, natsURL string
+var pgconnstr, natsURL, jwtsecret string
 
 func init() {
 	lvl, err := logrus.ParseLevel(os.Getenv("RELAY_LOG_LEVEL"))
@@ -61,6 +61,11 @@ func init() {
 		logger.Warnf("setting NATS url to %v", nats.DefaultURL)
 		natsURL = nats.DefaultURL
 	}
+
+	jwtsecret = os.Getenv("RELAY_JWT_SECRET")
+	if jwtsecret == "" {
+		logger.Warn("RELAY_JWT_SECRET not set - defaulting to \"\" (HIGHLY INSECURE!)")
+	}
 }
 
 func main() {
@@ -81,7 +86,7 @@ func main() {
 	logger.Info("setting up pollers send channel")
 	send := bus.SenderOn("pollers")
 
-	srv := http.NewServer(":9001", send, st)
+	srv := http.NewServer(":9001", send, st, jwtsecret)
 
 	if err := srv.ListenAndServe(); err != nil {
 		logger.WithField("error", err).Fatal("shutting down server")

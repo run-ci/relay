@@ -42,22 +42,24 @@ type apiStore interface {
 // Server is a net/http.Server with dependencies like
 // the database connection.
 type Server struct {
-	st     apiStore
-	pollch chan<- []byte
+	st        apiStore
+	pollch    chan<- []byte
+	jwtsecret []byte
 
 	*http.Server
 }
 
 // NewServer returns a Server with a reference to `st`, listening
 // on `addr`.
-func NewServer(addr string, pollch chan<- []byte, st apiStore) *Server {
+func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string) *Server {
 	srv := &Server{
 		Server: &http.Server{
 			Addr: addr,
 		},
 
-		st:     st,
-		pollch: pollch,
+		st:        st,
+		pollch:    pollch,
+		jwtsecret: []byte(jwtsecret),
 	}
 
 	r := mux.NewRouter()
