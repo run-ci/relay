@@ -52,8 +52,10 @@ func (st *memStore) seedProjects() {
 		ID:          0,
 		Name:        "test-a",
 		Description: "A project used for testing.",
-		User: store.User{
-			Email: "user@test",
+		Authorization: store.Authorization{
+			User: store.User{
+				Email: "user@test",
+			},
 		},
 	}
 
@@ -61,8 +63,10 @@ func (st *memStore) seedProjects() {
 		ID:          1,
 		Name:        "test-b",
 		Description: "A project used for testing.",
-		User: store.User{
-			Email: "user@test",
+		Authorization: store.Authorization{
+			User: store.User{
+				Email: "user@test",
+			},
 		},
 	}
 }
@@ -246,6 +250,8 @@ func TestGetProject(t *testing.T) {
 		t.Fatalf("expected description: %v, got %v", test.expected.Description, test.actual.Description)
 	}
 }
+
+// TODO: test respect of authorization when getting projects
 
 // TODO: move this to the test for creating a remote
 // func TestPostGitRepo(t *testing.T) {

@@ -43,6 +43,25 @@ var (
 		// Remember to delete this user once you've bootstrapped. :)
 		Password: "",
 	}
+
+	// PermGroupRead denotes a user's group has the ability to read
+	// the resoruce.
+	PermGroupRead = byte(128)
+	// PermGroupWrite denotes a user's group ahs the ability to edit
+	// the resource.
+	PermGroupWrite = byte(64)
+	// PermGroupRun denotes a user's group has the ability to run
+	// the resource.
+	PermGroupRun = byte(32)
+	// PermPublicRead denotes any unauthorized request to read the
+	// resource can be accepted.
+	PermPublicRead = byte(16)
+	// PermPublicWrite denotes any unauthorized request to edit
+	// the resource can be accepted.
+	PermPublicWrite = byte(8)
+	//PermPublicRun denotes any unauthorized request to edit the
+	// resource can be accepted.
+	PermPublicRun = byte(4)
 )
 
 func init() {
@@ -112,6 +131,14 @@ type RelayStore interface {
 	Authenticate(user, pass string) error
 }
 
+// Authorization encodes authorization information. It's only meant to
+// be embedded into other types.
+type Authorization struct {
+	User        User       `json:"user"`
+	Group       Group      `json:"group"`
+	Permissions Permission `json:"permissions"`
+}
+
 // Project is a grouping of different pipelines by their remotes.
 type Project struct {
 	ID          int    `json:"id"`
@@ -120,8 +147,19 @@ type Project struct {
 
 	GitRemotes []GitRemote `json:"git_remotes,omitempty"`
 
-	User User `json:"user"`
+	Authorization
 }
+
+// Permission is a byte encoding of the possible permissions that
+// can be assigned to a project. It's in the following format:
+//
+// 0------7
+// rwxrwx--
+//
+// Bits 0-2 apply to the user's group. Bits 3-5 apply to the public.
+// The remaining two bits are for extensibility. "r" for "read", "w"
+// for "write" and "x" for "execute".
+type Permission byte
 
 // GitRemote is the remote location of a Git repository, specified
 // by the URL and branch name.

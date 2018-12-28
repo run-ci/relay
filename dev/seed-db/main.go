@@ -80,6 +80,8 @@ func main() {
 		fmt.Printf("inserting project %v\n", proj.Name)
 
 		proj.User = store.DefaultUser
+		proj.Group = store.DefaultGroup
+		proj.Permissions = store.Permission(store.PermGroupRead | store.PermGroupWrite | store.PermGroupRun)
 
 		err := db.CreateProject(&proj)
 		if err != nil {
