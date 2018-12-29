@@ -12,6 +12,11 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
+// TODO: THESE TESTS ARE BAD!! THEY DON'T TEST AUTHORIZATION!
+//
+// All requests should be scoped to the user, their group, or public projects. Right
+// now these tests don't test for that, and they should!
+
 func (st *memStore) GetTask(user string, id int) (store.Task, error) {
 	t, ok := st.taskdb[id]
 	if !ok {
