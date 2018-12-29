@@ -187,11 +187,20 @@ func (st *Postgres) GetProjects(user string) ([]Project, error) {
 
 // GetPipelines implements the RelayStore interface. It returns a list of all
 // pipelines for the project with the given id.
-func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
+func (st *Postgres) GetPipelines(user string, pid int) ([]Pipeline, error) {
 	sqlq := `
 	SELECT p.id, p.name, p.remote_url, p.remote_branch, p.success
 	FROM pipelines AS p
-	WHERE p.project_id = $1;
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND p.project_id = $1;
 	`
 
 	logger := logger.WithFields(log.Fields{
@@ -199,7 +208,7 @@ func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
 		"query":      "get_pipelines",
 	})
 
-	rows, err := st.db.Query(sqlq, pid)
+	rows, err := st.db.Query(sqlq, pid, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query postgres for pipelines")
 	}

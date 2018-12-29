@@ -12,7 +12,7 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetPipelines(project int) ([]store.Pipeline, error) {
+func (st *memStore) GetPipelines(user string, project int) ([]store.Pipeline, error) {
 	pipelines := []store.Pipeline{}
 	for _, pipeline := range st.pipelinedb {
 		if project == pipeline.ProjectID {
@@ -111,7 +111,7 @@ func TestGetPipelines(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/pipelines/{project_id}", chain(srv.handleGetPipelines, setRequestID))
+	r.Handle("/pipelines/{project_id}", chain(srv.handleGetPipelines, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -226,5 +226,7 @@ func TestGetPipeline(t *testing.T) {
 	// TODO: test runs
 
 }
+
+// TODO: test that getting pipelines respects authorization
 
 // TODO: test pipeline not found returns 404

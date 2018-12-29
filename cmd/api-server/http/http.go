@@ -31,7 +31,7 @@ func init() {
 // apiStore is a grouping of the minimum number of store
 // interfaces the API needs to work.
 type apiStore interface {
-	GetPipelines(pid int) ([]store.Pipeline, error)
+	GetPipelines(user string, pid int) ([]store.Pipeline, error)
 	GetPipeline(id int) (store.Pipeline, error)
 	GetRun(pid, id int) (store.Run, error)
 	GetStep(id int) (store.Step, error)
@@ -94,8 +94,12 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 
 	// TODO: create git remote for project
 
-	r.Handle("/projects/{project_id}/pipelines", chain(srv.handleGetPipelines, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/projects/{project_id}/pipelines", chain(
+		srv.handleGetPipelines,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
 	r.Handle("/pipelines/{id}", chain(srv.handleGetPipeline, setRequestID, logRequest)).
 		Methods(http.MethodGet)
