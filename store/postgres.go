@@ -544,7 +544,7 @@ func (st *Postgres) UpdateTask(t *Task) error {
 
 // GetRun returns the nth run of the pipeline with the given ID. If the run
 // isn't found it returns ErrRunNotFound.
-func (st *Postgres) GetRun(pid, n int) (Run, error) {
+func (st *Postgres) GetRun(user string, pid, n int) (Run, error) {
 	logger := logger.WithFields(logrus.Fields{
 		"pipeline_id": pid,
 		"count":       n,
@@ -558,14 +558,25 @@ func (st *Postgres) GetRun(pid, n int) (Run, error) {
 	INNER JOIN steps AS s
 	ON r.count = s.run_count
 		AND r.pipeline_id = s.pipeline_id
-	WHERE r.pipeline_id = $1 AND r.count = $2
+	INNER JOIN pipelines AS p
+	ON r.pipeline_id = p.id
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $3
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND r.pipeline_id = $1 AND r.count = $2
 	`
 
 	r := Run{
 		PipelineID: pid,
 		Count:      n,
 	}
-	rows, err := st.db.Query(sqlq, pid, n)
+	rows, err := st.db.Query(sqlq, pid, n, user)
 	if err != nil {
 		// TODO: if this is ErrNoRows return ErrRunNotFound.
 		logger.WithError(err).Debug("unable to query database")

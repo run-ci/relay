@@ -104,7 +104,7 @@ type RelayStore interface {
 	// GetRun returns the nth run for the pipeline with the passed
 	// in ID from the store. If a run with that count isn't found
 	// for whatever reason, ErrRunNotFound is returned.
-	GetRun(pid, n int) (Run, error)
+	GetRun(user string, pid, n int) (Run, error)
 	// GetStep returns the step with the given ID from the store.
 	// If no step with that ID is found, ErrStepNotFound should
 	// be returned.
