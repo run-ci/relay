@@ -112,7 +112,7 @@ type RelayStore interface {
 	// GetTask returns the Task with the given ID from the store.
 	// If no Task with that ID is found, ErrTaskNotFound should
 	// be returned.
-	GetTask(id int) (Task, error)
+	GetTask(user string, id int) (Task, error)
 
 	// These Create* methods save their respective resources in
 	// the store, setting create-time values on the input.

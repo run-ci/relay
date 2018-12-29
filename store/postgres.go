@@ -675,18 +675,34 @@ func (st *Postgres) GetStep(user string, id int) (Step, error) {
 
 // GetTask returns the Task with the given ID. If the Task
 // isn't found it returns ErrTaskNotFound.
-func (st *Postgres) GetTask(id int) (Task, error) {
+func (st *Postgres) GetTask(user string, id int) (Task, error) {
 	logger := logger.WithField("id", id)
 	logger.Debug("getting Task from postgres")
 
 	sqlq := `
-	SELECT name, start_time, end_time, success, step_id
-	FROM tasks
-	WHERE tasks.id = $1
+	SELECT t.name, t.start_time, t.end_time, t.success, t.step_id
+	FROM tasks AS t
+	INNER JOIN steps AS s
+	ON t.step_id = s.id 
+	INNER JOIN runs AS r
+	ON s.run_count = r.count
+	INNER JOIN pipelines AS p
+	ON s.pipeline_id = p.id
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND t.id = $1;
 	`
 
 	t := Task{ID: id}
-	err := st.db.QueryRow(sqlq, id).Scan(&t.Name, &t.Start, &t.End, &t.Success, &t.StepID)
+	err := st.db.QueryRow(sqlq, id, user).
+		Scan(&t.Name, &t.Start, &t.End, &t.Success, &t.StepID)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query row")
 		if err == sql.ErrNoRows {

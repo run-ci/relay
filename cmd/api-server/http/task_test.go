@@ -12,7 +12,7 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetTask(id int) (store.Task, error) {
+func (st *memStore) GetTask(user string, id int) (store.Task, error) {
 	t, ok := st.taskdb[id]
 	if !ok {
 		return store.Task{}, store.ErrTaskNotFound
@@ -74,7 +74,7 @@ func TestGetTask(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/steps/{id}", chain(srv.handleGetTask, setRequestID))
+	r.Handle("/steps/{id}", chain(srv.handleGetTask, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -117,3 +117,5 @@ func TestGetTask(t *testing.T) {
 		t.Fatalf("expected Success %v, got %v", test.expected.Success, test.actual.Success)
 	}
 }
+
+// TODO: test get /tasks/id respects auth
