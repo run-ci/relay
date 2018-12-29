@@ -233,7 +233,7 @@ func (st *Postgres) GetPipelines(user string, pid int) ([]Pipeline, error) {
 }
 
 // GetPipeline retrieves the Pipeline with the given id from postgres.
-func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
+func (st *Postgres) GetPipeline(user string, id int) (Pipeline, error) {
 	logger := logger.WithField("id", id)
 	logger.Debug("getting pipeline from postgres")
 
@@ -243,11 +243,20 @@ func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
 	FROM pipelines AS p
 	INNER JOIN runs AS r
 	ON p.id = r.pipeline_id
-	WHERE p.id = $1;
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND p.id = $1;
 	`
 
 	var p Pipeline
-	rows, err := st.db.Query(sqlq, id)
+	rows, err := st.db.Query(sqlq, id, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 		return p, err

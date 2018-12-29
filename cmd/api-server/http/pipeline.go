@@ -103,7 +103,11 @@ func (srv *Server) handleGetPipelines(rw http.ResponseWriter, req *http.Request)
 
 func (srv *Server) handleGetPipeline(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
-	logger := logger.WithField("request_id", reqID)
+	reqSub := req.Context().Value(keyReqSub).(string)
+	logger := logger.WithFields(logrus.Fields{
+		"request_id":      reqID,
+		"request_subject": reqSub,
+	})
 
 	logger.Debug("checking mux vars for id")
 	vars := mux.Vars(req)
@@ -132,7 +136,7 @@ func (srv *Server) handleGetPipeline(rw http.ResponseWriter, req *http.Request) 
 
 	logger.Debug("retrieving pipelines from store")
 
-	pipeline, err := srv.st.GetPipeline(id)
+	pipeline, err := srv.st.GetPipeline(reqSub, id)
 	if err != nil {
 		logger.WithError(err).Error("unable to retrieve pipeline")
 

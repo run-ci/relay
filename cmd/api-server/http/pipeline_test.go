@@ -23,7 +23,7 @@ func (st *memStore) GetPipelines(user string, project int) ([]store.Pipeline, er
 	return pipelines, nil
 }
 
-func (st *memStore) GetPipeline(id int) (store.Pipeline, error) {
+func (st *memStore) GetPipeline(user string, id int) (store.Pipeline, error) {
 	p, ok := st.pipelinedb[id]
 	if !ok {
 		return p, store.ErrPipelineNotFound
@@ -168,7 +168,7 @@ func TestGetPipeline(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/pipelines/{id}", chain(srv.handleGetPipeline, setRequestID))
+	r.Handle("/pipelines/{id}", chain(srv.handleGetPipeline, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()

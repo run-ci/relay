@@ -94,7 +94,7 @@ type RelayStore interface {
 	CreateGitRemote(*GitRemote) error
 
 	GetPipelines(user string, projectid int) ([]Pipeline, error)
-	GetPipeline(id int) (Pipeline, error)
+	GetPipeline(user string, id int) (Pipeline, error)
 	// GetPipelineID takes these fields because it's the only way to
 	// identify a pipeline before the ID is known. If there are no
 	// pipelines matching these filters, implementations should return
