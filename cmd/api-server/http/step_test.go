@@ -12,7 +12,7 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetStep(id int) (store.Step, error) {
+func (st *memStore) GetStep(user string, id int) (store.Step, error) {
 	s, ok := st.stepdb[id]
 	if !ok {
 		return store.Step{}, store.ErrStepNotFound
@@ -73,7 +73,7 @@ func TestGetStep(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/steps/{id}", chain(srv.handleGetStep, setRequestID))
+	r.Handle("/steps/{id}", chain(srv.handleGetStep, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -119,3 +119,5 @@ func TestGetStep(t *testing.T) {
 	// TODO: test tasks
 
 }
+
+// TODO: test that the request respects the user authorization

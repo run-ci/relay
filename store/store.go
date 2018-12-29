@@ -108,7 +108,7 @@ type RelayStore interface {
 	// GetStep returns the step with the given ID from the store.
 	// If no step with that ID is found, ErrStepNotFound should
 	// be returned.
-	GetStep(id int) (Step, error)
+	GetStep(user string, id int) (Step, error)
 	// GetTask returns the Task with the given ID from the store.
 	// If no Task with that ID is found, ErrTaskNotFound should
 	// be returned.

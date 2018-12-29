@@ -606,7 +606,7 @@ func (st *Postgres) GetRun(user string, pid, n int) (Run, error) {
 
 // GetStep returns the nth run of the pipeline with the given ID. If the Step
 // isn't found it returns ErrStepNotFound.
-func (st *Postgres) GetStep(id int) (Step, error) {
+func (st *Postgres) GetStep(user string, id int) (Step, error) {
 	logger := logger.WithField("id", id)
 	logger.Debug("getting step from postgres")
 
@@ -616,11 +616,24 @@ func (st *Postgres) GetStep(id int) (Step, error) {
 	FROM steps AS s
 	INNER JOIN tasks AS t
 	ON s.id = t.step_id
-	WHERE s.id = $1
+	INNER JOIN runs AS r
+	ON s.run_count = r.count
+	INNER JOIN pipelines AS p
+	ON s.pipeline_id = p.id
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND s.id = $1
 	`
 
 	s := Step{ID: id}
-	rows, err := st.db.Query(sqlq, id)
+	rows, err := st.db.Query(sqlq, id, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 		return s, err
