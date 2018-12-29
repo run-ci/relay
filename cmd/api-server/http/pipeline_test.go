@@ -12,7 +12,12 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetPipelines(project int) ([]store.Pipeline, error) {
+// TODO: THESE TESTS ARE BAD!! THEY DON'T TEST AUTHORIZATION!
+//
+// All requests should be scoped to the user, their group, or public projects. Right
+// now these tests don't test for that, and they should!
+
+func (st *memStore) GetPipelines(user string, project int) ([]store.Pipeline, error) {
 	pipelines := []store.Pipeline{}
 	for _, pipeline := range st.pipelinedb {
 		if project == pipeline.ProjectID {
@@ -23,7 +28,7 @@ func (st *memStore) GetPipelines(project int) ([]store.Pipeline, error) {
 	return pipelines, nil
 }
 
-func (st *memStore) GetPipeline(id int) (store.Pipeline, error) {
+func (st *memStore) GetPipeline(user string, id int) (store.Pipeline, error) {
 	p, ok := st.pipelinedb[id]
 	if !ok {
 		return p, store.ErrPipelineNotFound
@@ -111,7 +116,7 @@ func TestGetPipelines(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/pipelines/{project_id}", chain(srv.handleGetPipelines, setRequestID))
+	r.Handle("/pipelines/{project_id}", chain(srv.handleGetPipelines, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -168,7 +173,7 @@ func TestGetPipeline(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/pipelines/{id}", chain(srv.handleGetPipeline, setRequestID))
+	r.Handle("/pipelines/{id}", chain(srv.handleGetPipeline, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -226,5 +231,7 @@ func TestGetPipeline(t *testing.T) {
 	// TODO: test runs
 
 }
+
+// TODO: test that getting pipelines respects authorization
 
 // TODO: test pipeline not found returns 404

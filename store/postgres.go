@@ -39,15 +39,16 @@ func (st *Postgres) CreateProject(p *Project) error {
 	logger.Debug("saving project to postgres")
 
 	sqlinsert := `
-	INSERT INTO projects (name, description, user_email)
+	INSERT INTO projects (name, description, user_email, group_name, permissions)
 	VALUES
-		($1, $2, $3)
+		($1, $2, $3, $4, $5)
 	RETURNING id;
 	`
 
 	// Using QueryRow because the insert is returning "count".
-	err := st.db.QueryRow(sqlinsert, p.Name, p.Description, p.User.Email).
-		Scan(&p.ID)
+	err := st.db.QueryRow(sqlinsert, p.Name, p.Description,
+		p.User.Email, p.Group.Name, p.Permissions,
+	).Scan(&p.ID)
 
 	if err != nil {
 		logger.WithField("error", err).
@@ -79,21 +80,30 @@ func (st *Postgres) CreateGitRemote(r *GitRemote) error {
 	return err
 }
 
-// GetProject retrieves the Project with the given id from postgres.
-func (st *Postgres) GetProject(id int) (Project, error) {
+// GetProject retrieves the Project with the given id from postgres. If
+// it's not found for the user it returns ErrProjectNotFound.
+func (st *Postgres) GetProject(user string, id int) (Project, error) {
 	logger := logger.WithField("project_id", id)
 	logger.Debug("getting project from postgres")
 
 	sqlq := `
-	SELECT proj.id, proj.name, proj.description,
+	SELECT proj.id, proj.name, proj.description, proj.permissions,
+		u.email, u.name, g.name,
 		gr.url, gr.branch
 	FROM projects AS proj
 	INNER JOIN git_remotes AS gr
 	ON proj.id = gr.project_id
-	WHERE proj.id = $1;
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND proj.id = $1;
 	`
 
-	rows, err := st.db.Query(sqlq, id)
+	rows, err := st.db.Query(sqlq, id, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 		return Project{}, err
@@ -107,11 +117,15 @@ func (st *Postgres) GetProject(id int) (Project, error) {
 		var desc sql.NullString
 		// It's safe to always overwrite `p` here because these values
 		// should always be the same.
-		err := rows.Scan(&p.ID, &p.Name, &desc, &gr.URL, &gr.Branch)
+		err := rows.Scan(&p.ID, &p.Name, &desc, &p.Permissions,
+			&p.User.Email, &p.User.Name, &p.Group.Name,
+			&gr.URL, &gr.Branch)
 		if err != nil {
 			logger.WithError(err).Debug("unable to scan row")
 			return p, err
 		}
+
+		p.User.Group.Name = p.Group.Name
 
 		if desc.Valid {
 			p.Description = desc.String
@@ -127,14 +141,18 @@ func (st *Postgres) GetProject(id int) (Project, error) {
 func (st *Postgres) GetProjects(user string) ([]Project, error) {
 	logger.Debug("fetching all projects from postgres")
 
+	// The 128 and 16 below correspond to the bits for "group read"
+	// and "public read" permissions.
 	sqlq := `
-	SELECT p.id, p.name, p.description, u.email, u.name, g.name
+	SELECT p.id, p.name, p.description, p.permissions, u.email, u.name, g.name
 	FROM projects AS p
 	INNER JOIN users AS u
 	ON p.user_email = u.email
 	INNER JOIN groups AS g
 	ON u.group_name = g.name
-	WHERE u.email = $1;
+	WHERE u.email = $1
+		OR u.group_name = p.group_name AND (p.permissions & 128) != 0
+		OR (p.permissions & 16) != 0;
 	`
 
 	rows, err := st.db.Query(sqlq, user)
@@ -147,12 +165,15 @@ func (st *Postgres) GetProjects(user string) ([]Project, error) {
 	for rows.Next() {
 		p := Project{}
 		var desc sql.NullString
-		err := rows.Scan(&p.ID, &p.Name, &desc,
+		err := rows.Scan(&p.ID, &p.Name, &desc, &p.Permissions,
 			&p.User.Email, &p.User.Name, &p.User.Group.Name)
 		if err != nil {
 			logger.WithField("error", err).Debug("unable to scan row")
 			return ps, err
 		}
+
+		// This needs to be populated correctly.
+		p.Group.Name = p.User.Group.Name
 
 		if desc.Valid {
 			p.Description = desc.String
@@ -166,11 +187,20 @@ func (st *Postgres) GetProjects(user string) ([]Project, error) {
 
 // GetPipelines implements the RelayStore interface. It returns a list of all
 // pipelines for the project with the given id.
-func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
+func (st *Postgres) GetPipelines(user string, pid int) ([]Pipeline, error) {
 	sqlq := `
 	SELECT p.id, p.name, p.remote_url, p.remote_branch, p.success
 	FROM pipelines AS p
-	WHERE p.project_id = $1;
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND p.project_id = $1;
 	`
 
 	logger := logger.WithFields(log.Fields{
@@ -178,7 +208,7 @@ func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
 		"query":      "get_pipelines",
 	})
 
-	rows, err := st.db.Query(sqlq, pid)
+	rows, err := st.db.Query(sqlq, pid, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query postgres for pipelines")
 	}
@@ -203,7 +233,7 @@ func (st *Postgres) GetPipelines(pid int) ([]Pipeline, error) {
 }
 
 // GetPipeline retrieves the Pipeline with the given id from postgres.
-func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
+func (st *Postgres) GetPipeline(user string, id int) (Pipeline, error) {
 	logger := logger.WithField("id", id)
 	logger.Debug("getting pipeline from postgres")
 
@@ -213,11 +243,20 @@ func (st *Postgres) GetPipeline(id int) (Pipeline, error) {
 	FROM pipelines AS p
 	INNER JOIN runs AS r
 	ON p.id = r.pipeline_id
-	WHERE p.id = $1;
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND p.id = $1;
 	`
 
 	var p Pipeline
-	rows, err := st.db.Query(sqlq, id)
+	rows, err := st.db.Query(sqlq, id, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 		return p, err
@@ -505,7 +544,7 @@ func (st *Postgres) UpdateTask(t *Task) error {
 
 // GetRun returns the nth run of the pipeline with the given ID. If the run
 // isn't found it returns ErrRunNotFound.
-func (st *Postgres) GetRun(pid, n int) (Run, error) {
+func (st *Postgres) GetRun(user string, pid, n int) (Run, error) {
 	logger := logger.WithFields(logrus.Fields{
 		"pipeline_id": pid,
 		"count":       n,
@@ -519,14 +558,25 @@ func (st *Postgres) GetRun(pid, n int) (Run, error) {
 	INNER JOIN steps AS s
 	ON r.count = s.run_count
 		AND r.pipeline_id = s.pipeline_id
-	WHERE r.pipeline_id = $1 AND r.count = $2
+	INNER JOIN pipelines AS p
+	ON r.pipeline_id = p.id
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $3
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND r.pipeline_id = $1 AND r.count = $2
 	`
 
 	r := Run{
 		PipelineID: pid,
 		Count:      n,
 	}
-	rows, err := st.db.Query(sqlq, pid, n)
+	rows, err := st.db.Query(sqlq, pid, n, user)
 	if err != nil {
 		// TODO: if this is ErrNoRows return ErrRunNotFound.
 		logger.WithError(err).Debug("unable to query database")
@@ -556,7 +606,7 @@ func (st *Postgres) GetRun(pid, n int) (Run, error) {
 
 // GetStep returns the nth run of the pipeline with the given ID. If the Step
 // isn't found it returns ErrStepNotFound.
-func (st *Postgres) GetStep(id int) (Step, error) {
+func (st *Postgres) GetStep(user string, id int) (Step, error) {
 	logger := logger.WithField("id", id)
 	logger.Debug("getting step from postgres")
 
@@ -566,11 +616,24 @@ func (st *Postgres) GetStep(id int) (Step, error) {
 	FROM steps AS s
 	INNER JOIN tasks AS t
 	ON s.id = t.step_id
-	WHERE s.id = $1
+	INNER JOIN runs AS r
+	ON s.run_count = r.count
+	INNER JOIN pipelines AS p
+	ON s.pipeline_id = p.id
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND s.id = $1
 	`
 
 	s := Step{ID: id}
-	rows, err := st.db.Query(sqlq, id)
+	rows, err := st.db.Query(sqlq, id, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 		return s, err
@@ -612,18 +675,34 @@ func (st *Postgres) GetStep(id int) (Step, error) {
 
 // GetTask returns the Task with the given ID. If the Task
 // isn't found it returns ErrTaskNotFound.
-func (st *Postgres) GetTask(id int) (Task, error) {
+func (st *Postgres) GetTask(user string, id int) (Task, error) {
 	logger := logger.WithField("id", id)
 	logger.Debug("getting Task from postgres")
 
 	sqlq := `
-	SELECT name, start_time, end_time, success, step_id
-	FROM tasks
-	WHERE tasks.id = $1
+	SELECT t.name, t.start_time, t.end_time, t.success, t.step_id
+	FROM tasks AS t
+	INNER JOIN steps AS s
+	ON t.step_id = s.id 
+	INNER JOIN runs AS r
+	ON s.run_count = r.count
+	INNER JOIN pipelines AS p
+	ON s.pipeline_id = p.id
+	INNER JOIN projects AS proj
+	ON p.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND t.id = $1;
 	`
 
 	t := Task{ID: id}
-	err := st.db.QueryRow(sqlq, id).Scan(&t.Name, &t.Start, &t.End, &t.Success, &t.StepID)
+	err := st.db.QueryRow(sqlq, id, user).
+		Scan(&t.Name, &t.Start, &t.End, &t.Success, &t.StepID)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query row")
 		if err == sql.ErrNoRows {

@@ -12,7 +12,12 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetRun(pid, n int) (store.Run, error) {
+// TODO: THESE TESTS ARE BAD!! THEY DON'T TEST AUTHORIZATION!
+//
+// All requests should be scoped to the user, their group, or public projects. Right
+// now these tests don't test for that, and they should!
+
+func (st *memStore) GetRun(user string, pid, n int) (store.Run, error) {
 	p, ok := st.pipelinedb[pid]
 	if !ok {
 		return store.Run{}, store.ErrPipelineNotFound
@@ -44,7 +49,7 @@ func TestGetRun(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/pipelines/{pid}/runs/{count}", chain(srv.handleGetRun, setRequestID))
+	r.Handle("/pipelines/{pid}/runs/{count}", chain(srv.handleGetRun, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -90,3 +95,5 @@ func TestGetRun(t *testing.T) {
 	// TODO: test steps
 
 }
+
+// TODO: test that request authorization is respected

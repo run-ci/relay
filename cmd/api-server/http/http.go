@@ -31,14 +31,14 @@ func init() {
 // apiStore is a grouping of the minimum number of store
 // interfaces the API needs to work.
 type apiStore interface {
-	GetPipelines(pid int) ([]store.Pipeline, error)
-	GetPipeline(id int) (store.Pipeline, error)
-	GetRun(pid, id int) (store.Run, error)
-	GetStep(id int) (store.Step, error)
-	GetTask(id int) (store.Task, error)
+	GetPipelines(user string, pid int) ([]store.Pipeline, error)
+	GetPipeline(user string, id int) (store.Pipeline, error)
+	GetRun(user string, pid, id int) (store.Run, error)
+	GetStep(user string, id int) (store.Step, error)
+	GetTask(user string, id int) (store.Task, error)
 
 	CreateProject(*store.Project) error
-	GetProject(id int) (store.Project, error)
+	GetProject(user string, id int) (store.Project, error)
 	GetProjects(user string) ([]store.Project, error)
 
 	Authenticate(user, pass string) error
@@ -83,27 +83,51 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 		srv.checkAuth,
 	)).Methods(http.MethodGet)
 
-	r.Handle("/projects/{id}", chain(srv.handleGetProject, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/projects/{id}", chain(
+		srv.handleGetProject,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
 	// TODO: delete projects
 
 	// TODO: create git remote for project
 
-	r.Handle("/projects/{project_id}/pipelines", chain(srv.handleGetPipelines, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/projects/{project_id}/pipelines", chain(
+		srv.handleGetPipelines,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
-	r.Handle("/pipelines/{id}", chain(srv.handleGetPipeline, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/pipelines/{id}", chain(
+		srv.handleGetPipeline,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
-	r.Handle("/pipelines/{pid}/runs/{count}", chain(srv.handleGetRun, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/pipelines/{pid}/runs/{count}", chain(
+		srv.handleGetRun,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
-	r.Handle("/steps/{id}", chain(srv.handleGetStep, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/steps/{id}", chain(
+		srv.handleGetStep,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
-	r.Handle("/tasks/{id}", chain(srv.handleGetTask, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/tasks/{id}", chain(
+		srv.handleGetTask,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
 	r.Handle("/auth", chain(srv.handleAuth, setRequestID, logRequest)).
 		Methods(http.MethodPost)

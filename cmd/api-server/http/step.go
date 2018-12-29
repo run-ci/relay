@@ -7,11 +7,16 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 )
 
 func (srv *Server) handleGetStep(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
-	logger := logger.WithField("request_id", reqID)
+	reqSub := req.Context().Value(keyReqSub).(string)
+	logger := logger.WithFields(logrus.Fields{
+		"request_id":      reqID,
+		"request_subject": reqSub,
+	})
 
 	logger.Debug("checking mux vars for id")
 	vars := mux.Vars(req)
@@ -40,7 +45,7 @@ func (srv *Server) handleGetStep(rw http.ResponseWriter, req *http.Request) {
 
 	logger.Debug("retrieving step from store")
 
-	step, err := srv.st.GetStep(id)
+	step, err := srv.st.GetStep(reqSub, id)
 	if err != nil {
 		logger.WithError(err).Error("unable to retrieve step")
 

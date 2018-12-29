@@ -118,7 +118,11 @@ func (srv *Server) handleGetProjects(rw http.ResponseWriter, req *http.Request) 
 
 func (srv *Server) handleGetProject(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
-	logger := logger.WithField("request_id", reqID)
+	reqSub := req.Context().Value(keyReqSub).(string)
+	logger := logger.WithFields(logrus.Fields{
+		"request_id":      reqID,
+		"request_subject": reqSub,
+	})
 
 	logger.Debug("checking mux vars for id")
 	vars := mux.Vars(req)
@@ -146,7 +150,7 @@ func (srv *Server) handleGetProject(rw http.ResponseWriter, req *http.Request) {
 	logger = logger.WithField("project_id", id)
 	logger.Debug("getting project")
 
-	proj, err := srv.st.GetProject(id)
+	proj, err := srv.st.GetProject(reqSub, id)
 	if err != nil {
 		logger.WithError(err).Error("unable to retrieve project from database")
 

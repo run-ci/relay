@@ -12,7 +12,12 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
-func (st *memStore) GetStep(id int) (store.Step, error) {
+// TODO: THESE TESTS ARE BAD!! THEY DON'T TEST AUTHORIZATION!
+//
+// All requests should be scoped to the user, their group, or public projects. Right
+// now these tests don't test for that, and they should!
+
+func (st *memStore) GetStep(user string, id int) (store.Step, error) {
 	s, ok := st.stepdb[id]
 	if !ok {
 		return store.Step{}, store.ErrStepNotFound
@@ -73,7 +78,7 @@ func TestGetStep(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/steps/{id}", chain(srv.handleGetStep, setRequestID))
+	r.Handle("/steps/{id}", chain(srv.handleGetStep, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -119,3 +124,5 @@ func TestGetStep(t *testing.T) {
 	// TODO: test tasks
 
 }
+
+// TODO: test that the request respects the user authorization

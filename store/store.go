@@ -25,6 +25,10 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 	// ErrNotAuthenticated is an error returned when a user fails to authenticate.
 	ErrNotAuthenticated = errors.New("authentication failed")
+	// ErrProjectNotFound is what's returned when a project couldn't
+	// be found in the store. This is true even if the project exists, but
+	// a user doesn't have authorization to view it.
+	ErrProjectNotFound = errors.New("project not found")
 )
 
 var (
@@ -43,6 +47,25 @@ var (
 		// Remember to delete this user once you've bootstrapped. :)
 		Password: "",
 	}
+
+	// PermGroupRead denotes a user's group has the ability to read
+	// the resoruce.
+	PermGroupRead = byte(128)
+	// PermGroupWrite denotes a user's group ahs the ability to edit
+	// the resource.
+	PermGroupWrite = byte(64)
+	// PermGroupRun denotes a user's group has the ability to run
+	// the resource.
+	PermGroupRun = byte(32)
+	// PermPublicRead denotes any unauthorized request to read the
+	// resource can be accepted.
+	PermPublicRead = byte(16)
+	// PermPublicWrite denotes any unauthorized request to edit
+	// the resource can be accepted.
+	PermPublicWrite = byte(8)
+	//PermPublicRun denotes any unauthorized request to edit the
+	// resource can be accepted.
+	PermPublicRun = byte(4)
 )
 
 func init() {
@@ -62,7 +85,7 @@ type RelayStore interface {
 	CreateProject(*Project) error
 	// GetProject returns a Project with its GitRemotes. It doesn't
 	// fetch the actual pipelines in those remotes.
-	GetProject(id int) (Project, error)
+	GetProject(user string, id int) (Project, error)
 	// GetProjects returns a preview list of Projects, without any
 	// information as to what's inside those Projects. This operation
 	// is scoped to a specific user.
@@ -70,8 +93,8 @@ type RelayStore interface {
 
 	CreateGitRemote(*GitRemote) error
 
-	GetPipelines(projectid int) ([]Pipeline, error)
-	GetPipeline(id int) (Pipeline, error)
+	GetPipelines(user string, projectid int) ([]Pipeline, error)
+	GetPipeline(user string, id int) (Pipeline, error)
 	// GetPipelineID takes these fields because it's the only way to
 	// identify a pipeline before the ID is known. If there are no
 	// pipelines matching these filters, implementations should return
@@ -81,15 +104,15 @@ type RelayStore interface {
 	// GetRun returns the nth run for the pipeline with the passed
 	// in ID from the store. If a run with that count isn't found
 	// for whatever reason, ErrRunNotFound is returned.
-	GetRun(pid, n int) (Run, error)
+	GetRun(user string, pid, n int) (Run, error)
 	// GetStep returns the step with the given ID from the store.
 	// If no step with that ID is found, ErrStepNotFound should
 	// be returned.
-	GetStep(id int) (Step, error)
+	GetStep(user string, id int) (Step, error)
 	// GetTask returns the Task with the given ID from the store.
 	// If no Task with that ID is found, ErrTaskNotFound should
 	// be returned.
-	GetTask(id int) (Task, error)
+	GetTask(user string, id int) (Task, error)
 
 	// These Create* methods save their respective resources in
 	// the store, setting create-time values on the input.
@@ -112,6 +135,14 @@ type RelayStore interface {
 	Authenticate(user, pass string) error
 }
 
+// Authorization encodes authorization information. It's only meant to
+// be embedded into other types.
+type Authorization struct {
+	User        User       `json:"user"`
+	Group       Group      `json:"group"`
+	Permissions Permission `json:"permissions"`
+}
+
 // Project is a grouping of different pipelines by their remotes.
 type Project struct {
 	ID          int    `json:"id"`
@@ -120,8 +151,19 @@ type Project struct {
 
 	GitRemotes []GitRemote `json:"git_remotes,omitempty"`
 
-	User User `json:"user"`
+	Authorization
 }
+
+// Permission is a byte encoding of the possible permissions that
+// can be assigned to a project. It's in the following format:
+//
+// 0------7
+// rwxrwx--
+//
+// Bits 0-2 apply to the user's group. Bits 3-5 apply to the public.
+// The remaining two bits are for extensibility. "r" for "read", "w"
+// for "write" and "x" for "execute".
+type Permission byte
 
 // GitRemote is the remote location of a Git repository, specified
 // by the URL and branch name.

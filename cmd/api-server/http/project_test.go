@@ -14,6 +14,11 @@ import (
 	"github.com/run-ci/relay/store"
 )
 
+// TODO: THESE TESTS ARE BAD!! THEY DON'T TEST AUTHORIZATION!
+//
+// All requests should be scoped to the user, their group, or public projects. Right
+// now these tests don't test for that, and they should!
+
 type memStore struct {
 	projectdb  map[int]store.Project
 	pipelinedb map[int]store.Pipeline
@@ -32,7 +37,11 @@ func (st *memStore) CreateProject(proj *store.Project) error {
 	return nil
 }
 
-func (st *memStore) GetProject(id int) (store.Project, error) {
+func (st *memStore) GetProject(user string, id int) (store.Project, error) {
+	ret := st.projectdb[id]
+	if ret.User.Email != user {
+		return store.Project{}, store.ErrProjectNotFound
+	}
 	return st.projectdb[id], nil
 }
 
@@ -52,8 +61,10 @@ func (st *memStore) seedProjects() {
 		ID:          0,
 		Name:        "test-a",
 		Description: "A project used for testing.",
-		User: store.User{
-			Email: "user@test",
+		Authorization: store.Authorization{
+			User: store.User{
+				Email: "user@test",
+			},
 		},
 	}
 
@@ -61,8 +72,10 @@ func (st *memStore) seedProjects() {
 		ID:          1,
 		Name:        "test-b",
 		Description: "A project used for testing.",
-		User: store.User{
-			Email: "user@test",
+		Authorization: store.Authorization{
+			User: store.User{
+				Email: "user@test",
+			},
 		},
 	}
 }
@@ -185,6 +198,19 @@ func TestGetAllProjects(t *testing.T) {
 	}
 }
 
+func autoAuth(fn http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		ctx := context.WithValue(
+			req.Context(),
+			keyReqSub,
+			"user@test",
+		)
+		req = req.WithContext(ctx)
+
+		fn(rw, req)
+	})
+}
+
 func TestGetProject(t *testing.T) {
 	st := &memStore{
 		projectdb: make(map[int]store.Project),
@@ -203,7 +229,7 @@ func TestGetProject(t *testing.T) {
 	}
 
 	r := mux.NewRouter()
-	r.Handle("/projects/{id}", chain(srv.handleGetProject, setRequestID))
+	r.Handle("/projects/{id}", chain(srv.handleGetProject, setRequestID, autoAuth))
 
 	ts := httptest.NewServer(r)
 	defer ts.Close()
@@ -246,6 +272,10 @@ func TestGetProject(t *testing.T) {
 		t.Fatalf("expected description: %v, got %v", test.expected.Description, test.actual.Description)
 	}
 }
+
+// TODO: test respect of authorization when getting projects
+
+// TODO: rest respect of authorization when getting a single project
 
 // TODO: move this to the test for creating a remote
 // func TestPostGitRepo(t *testing.T) {

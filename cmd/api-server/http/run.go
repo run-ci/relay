@@ -7,11 +7,16 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 )
 
 func (srv *Server) handleGetRun(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
-	logger := logger.WithField("request_id", reqID)
+	reqSub := req.Context().Value(keyReqSub).(string)
+	logger := logger.WithFields(logrus.Fields{
+		"request_id":      reqID,
+		"request_subject": reqSub,
+	})
 
 	logger.Debug("checking mux vars for pipeline id")
 	vars := mux.Vars(req)
@@ -61,7 +66,7 @@ func (srv *Server) handleGetRun(rw http.ResponseWriter, req *http.Request) {
 
 	logger.Debug("retrieving run from store")
 
-	run, err := srv.st.GetRun(pid, count)
+	run, err := srv.st.GetRun(reqSub, pid, count)
 	if err != nil {
 		logger.WithError(err).Error("unable to retrieve run")
 
