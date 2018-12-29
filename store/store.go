@@ -25,6 +25,10 @@ var (
 	ErrTaskNotFound = errors.New("task not found")
 	// ErrNotAuthenticated is an error returned when a user fails to authenticate.
 	ErrNotAuthenticated = errors.New("authentication failed")
+	// ErrProjectNotFound is what's returned when a project couldn't
+	// be found in the store. This is true even if the project exists, but
+	// a user doesn't have authorization to view it.
+	ErrProjectNotFound = errors.New("project not found")
 )
 
 var (
@@ -81,7 +85,7 @@ type RelayStore interface {
 	CreateProject(*Project) error
 	// GetProject returns a Project with its GitRemotes. It doesn't
 	// fetch the actual pipelines in those remotes.
-	GetProject(id int) (Project, error)
+	GetProject(user string, id int) (Project, error)
 	// GetProjects returns a preview list of Projects, without any
 	// information as to what's inside those Projects. This operation
 	// is scoped to a specific user.

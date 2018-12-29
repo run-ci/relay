@@ -80,21 +80,30 @@ func (st *Postgres) CreateGitRemote(r *GitRemote) error {
 	return err
 }
 
-// GetProject retrieves the Project with the given id from postgres.
-func (st *Postgres) GetProject(id int) (Project, error) {
+// GetProject retrieves the Project with the given id from postgres. If
+// it's not found for the user it returns ErrProjectNotFound.
+func (st *Postgres) GetProject(user string, id int) (Project, error) {
 	logger := logger.WithField("project_id", id)
 	logger.Debug("getting project from postgres")
 
 	sqlq := `
-	SELECT proj.id, proj.name, proj.description,
+	SELECT proj.id, proj.name, proj.description, proj.permissions,
+		u.email, u.name, g.name,
 		gr.url, gr.branch
 	FROM projects AS proj
 	INNER JOIN git_remotes AS gr
 	ON proj.id = gr.project_id
-	WHERE proj.id = $1;
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $2
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND proj.id = $1;
 	`
 
-	rows, err := st.db.Query(sqlq, id)
+	rows, err := st.db.Query(sqlq, id, user)
 	if err != nil {
 		logger.WithError(err).Debug("unable to query database")
 		return Project{}, err
@@ -108,11 +117,15 @@ func (st *Postgres) GetProject(id int) (Project, error) {
 		var desc sql.NullString
 		// It's safe to always overwrite `p` here because these values
 		// should always be the same.
-		err := rows.Scan(&p.ID, &p.Name, &desc, &gr.URL, &gr.Branch)
+		err := rows.Scan(&p.ID, &p.Name, &desc, &p.Permissions,
+			&p.User.Email, &p.User.Name, &p.Group.Name,
+			&gr.URL, &gr.Branch)
 		if err != nil {
 			logger.WithError(err).Debug("unable to scan row")
 			return p, err
 		}
+
+		p.User.Group.Name = p.Group.Name
 
 		if desc.Valid {
 			p.Description = desc.String

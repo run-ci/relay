@@ -38,7 +38,7 @@ type apiStore interface {
 	GetTask(id int) (store.Task, error)
 
 	CreateProject(*store.Project) error
-	GetProject(id int) (store.Project, error)
+	GetProject(user string, id int) (store.Project, error)
 	GetProjects(user string) ([]store.Project, error)
 
 	Authenticate(user, pass string) error
@@ -83,8 +83,12 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 		srv.checkAuth,
 	)).Methods(http.MethodGet)
 
-	r.Handle("/projects/{id}", chain(srv.handleGetProject, setRequestID, logRequest)).
-		Methods(http.MethodGet)
+	r.Handle("/projects/{id}", chain(
+		srv.handleGetProject,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
 	// TODO: delete projects
 
