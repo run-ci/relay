@@ -74,8 +74,7 @@ func (st *Postgres) CreateGitRemote(r *GitRemote) error {
 	_, err := st.db.Exec(sqlinsert, r.URL, r.Branch, r.ProjectID)
 
 	if err != nil {
-		logger.WithField("error", err).
-			Debug("unable to create project")
+		logger.WithError(err).Debug("unable to create git remote")
 	}
 	return err
 }
