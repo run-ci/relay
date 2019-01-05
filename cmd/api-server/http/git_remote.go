@@ -100,18 +100,6 @@ func (srv *Server) handleCreateGitRemote(rw http.ResponseWriter, req *http.Reque
 	// 	}
 	// }
 
-	buf, err = json.Marshal(gr)
-	if err != nil {
-		logger.WithField("error", err).
-			Error("unable to marshal response body")
-
-		// We've already processed the request and taken action on it,
-		// so returning an error response code here would be misleading.
-		writeErrResp(rw, err, http.StatusAccepted)
-		return
-	}
-
-	rw.WriteHeader(http.StatusAccepted)
-	rw.Write(buf)
+	rw.WriteHeader(http.StatusCreated)
 	return
 }
