@@ -69,8 +69,8 @@ func TestCreateGitRemote(t *testing.T) {
 
 	t.Logf("response status: %v", resp.StatusCode)
 
-	if resp.StatusCode != http.StatusCreated {
-		t.Fatalf("expected status %v, got %v", http.StatusCreated, resp.StatusCode)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected status %v, got %v", http.StatusAccepted, resp.StatusCode)
 	}
 }
 

@@ -83,26 +83,23 @@ func (srv *Server) handleCreateGitRemote(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	// TODO: make sure this is implemented properly since it's been copied
-	// for _, remote := range proj.GitRemotes {
-	// 	msg := map[string]string{
-	// 		"op":     "create",
-	// 		"remote": remote.URL,
-	// 		"branch": remote.Branch,
-	// 	}
-	// 	rawmsg, err := json.Marshal(msg)
-	// 	if err != nil {
-	// 		logger.WithField("error", err).
-	// 			Warn("unable to marshal poller create message")
-	// 	} else {
-	// 		// Not being able to send to the poller is not enough to cause the
-	// 		// request to fail. For this reason, we should try as hard as possible
-	// 		// to send the request.
-	// 		go sendWithBackoff(logger, srv.pollch, rawmsg)
-	// 	}
-	// }
+	msg := map[string]string{
+		"op":     "create",
+		"remote": gr.URL,
+		"branch": gr.Branch,
+	}
+	rawmsg, err := json.Marshal(msg)
+	if err != nil {
+		logger.WithField("error", err).
+			Warn("unable to marshal poller create message")
+	} else {
+		// Not being able to send to the poller is not enough to cause the
+		// request to fail. For this reason, we should try as hard as possible
+		// to send the request.
+		go sendWithBackoff(logger, srv.pollch, rawmsg)
+	}
 
-	rw.WriteHeader(http.StatusCreated)
+	rw.WriteHeader(http.StatusAccepted)
 	return
 }
 
