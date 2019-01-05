@@ -10,6 +10,11 @@ import (
 var logger *log.Entry
 
 var (
+	// All the "XNotFound" errors below are scoped to the user attached
+	// to the request. If that user isn't associated with data matching
+	// the criteria, the error returned indicates simply that something
+	// hasn't been found, to avoid leaking information.
+
 	// ErrPipelineNotFound is what's returned when a pipeline couldn't
 	// be found in the store.
 	ErrPipelineNotFound = errors.New("pipeline not found")
@@ -29,6 +34,9 @@ var (
 	// be found in the store. This is true even if the project exists, but
 	// a user doesn't have authorization to view it.
 	ErrProjectNotFound = errors.New("project not found")
+	// ErrGitRemoteNotFound is what's returned when a Git remote coudln't be
+	// found in the store.
+	ErrGitRemoteNotFound = errors.New("git remote not found")
 )
 
 var (
@@ -92,6 +100,7 @@ type RelayStore interface {
 	GetProjects(user string) ([]Project, error)
 
 	CreateGitRemote(string, *GitRemote) error
+	GetGitRemote(string, int, string, string) (GitRemote, error)
 
 	GetPipelines(user string, projectid int) ([]Pipeline, error)
 	GetPipeline(user string, id int) (Pipeline, error)

@@ -36,6 +36,7 @@ type apiStore interface {
 	GetRun(user string, pid, id int) (store.Run, error)
 	GetStep(user string, id int) (store.Step, error)
 	GetTask(user string, id int) (store.Task, error)
+	GetGitRemote(user string, pid int, url string, branch string) (store.GitRemote, error)
 
 	CreateProject(*store.Project) error
 	GetProject(user string, id int) (store.Project, error)
@@ -100,6 +101,13 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 		logRequest,
 		srv.checkAuth,
 	)).Methods(http.MethodPost)
+
+	r.Handle("/projects/{project_id}/git_remotes/{id}", chain(
+		srv.handleGetGitRemote,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
 	r.Handle("/projects/{project_id}/pipelines", chain(
 		srv.handleGetPipelines,

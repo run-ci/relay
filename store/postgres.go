@@ -105,6 +105,38 @@ func (st *Postgres) CreateGitRemote(user string, r *GitRemote) error {
 	return err
 }
 
+// GetGitRemote retrieves the remote for the project with the given ID, using the
+// url and branch.
+func (st *Postgres) GetGitRemote(user string, pid int, url string, branch string) (GitRemote, error) {
+	logger := logger.WithField("project_id", pid)
+	logger.Debug("getting git remote from postgres")
+
+	sqlq := `
+	SELECT gr.url, gr.branch, gr.project_id
+	FROM git_remotes AS gr
+	INNER JOIN projects AS proj
+	ON gr.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $1
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND proj.id = $2
+		AND gr.url = $3
+		AND gr.branch = $4;
+	`
+
+	var remote GitRemote
+	err := st.db.QueryRow(sqlq, user, pid, url, branch).Scan(&remote.URL, &remote.Branch, &remote.ProjectID)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query database")
+	}
+
+	return remote, err
+}
+
 // GetProject retrieves the Project with the given id from postgres. If
 // it's not found for the user it returns ErrProjectNotFound.
 func (st *Postgres) GetProject(user string, id int) (Project, error) {

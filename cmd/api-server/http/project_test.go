@@ -66,6 +66,13 @@ func (st *memStore) seedProjects() {
 				Email: "user@test",
 			},
 		},
+		GitRemotes: []store.GitRemote{
+			store.GitRemote{
+				URL:       "//test-a.git",
+				Branch:    "master",
+				ProjectID: 0,
+			},
+		},
 	}
 
 	st.projectdb[1] = store.Project{
@@ -75,6 +82,13 @@ func (st *memStore) seedProjects() {
 		Authorization: store.Authorization{
 			User: store.User{
 				Email: "user@test",
+			},
+		},
+		GitRemotes: []store.GitRemote{
+			store.GitRemote{
+				URL:       "//test-b.git",
+				Branch:    "master",
+				ProjectID: 0,
 			},
 		},
 	}
