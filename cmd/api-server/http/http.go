@@ -41,6 +41,8 @@ type apiStore interface {
 	GetProject(user string, id int) (store.Project, error)
 	GetProjects(user string) ([]store.Project, error)
 
+	CreateGitRemote(user string, remote *store.GitRemote) error
+
 	Authenticate(user, pass string) error
 }
 
@@ -92,7 +94,12 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 
 	// TODO: delete projects
 
-	// TODO: create git remote for project
+	r.Handle("/projects/{project_id}/git_remotes", chain(
+		srv.handleCreateGitRemote,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodPost)
 
 	r.Handle("/projects/{project_id}/pipelines", chain(
 		srv.handleGetPipelines,

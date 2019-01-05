@@ -91,7 +91,7 @@ type RelayStore interface {
 	// is scoped to a specific user.
 	GetProjects(user string) ([]Project, error)
 
-	CreateGitRemote(*GitRemote) error
+	CreateGitRemote(string, *GitRemote) error
 
 	GetPipelines(user string, projectid int) ([]Pipeline, error)
 	GetPipeline(user string, id int) (Pipeline, error)

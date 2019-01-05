@@ -58,12 +58,38 @@ func (st *Postgres) CreateProject(p *Project) error {
 }
 
 // CreateGitRemote stores the passed in GitRemote in Postgres.
-func (st *Postgres) CreateGitRemote(r *GitRemote) error {
+func (st *Postgres) CreateGitRemote(user string, r *GitRemote) error {
 	logger := logger.WithFields(logrus.Fields{
-		"url":    r.URL,
-		"branch": r.Branch,
+		"url":        r.URL,
+		"branch":     r.Branch,
+		"project_id": r.ProjectID,
 	})
 	logger.Debug("saving remote to postgres")
+
+	// It's enough to just check the group here because if the
+	// user email matches then the group name must also match.
+	authq := `
+	SELECT COUNT(*)
+	FROM projects
+	INNER JOIN users
+	ON users.group_name = projects.group_name
+	WHERE users.email = $1
+	AND projects.id = $2;
+	`
+
+	var count int
+	err := st.db.QueryRow(authq, user, r.ProjectID).Scan(&count)
+	if err != nil {
+		// This should always return a row, even if the row says
+		// there's no users matching the criteria.
+		logger.WithError(err).Debug("unable to query for auth count")
+		return err
+	}
+
+	if count < 1 {
+		logger.WithError(ErrProjectNotFound).Error("unable to find project for user")
+		return ErrProjectNotFound
+	}
 
 	sqlinsert := `
 	INSERT INTO git_remotes (url, branch, project_id)
@@ -71,7 +97,7 @@ func (st *Postgres) CreateGitRemote(r *GitRemote) error {
 		($1, $2, $3)
 	`
 
-	_, err := st.db.Exec(sqlinsert, r.URL, r.Branch, r.ProjectID)
+	_, err = st.db.Exec(sqlinsert, r.URL, r.Branch, r.ProjectID)
 
 	if err != nil {
 		logger.WithError(err).Debug("unable to create git remote")
@@ -88,7 +114,7 @@ func (st *Postgres) GetProject(user string, id int) (Project, error) {
 	sqlq := `
 	SELECT proj.id, proj.name, proj.description, proj.permissions,
 		u.email, u.name, g.name,
-		gr.url, gr.branch
+		gr.url, gr.branch, gr.project_id
 	FROM projects AS proj
 	INNER JOIN git_remotes AS gr
 	ON proj.id = gr.project_id
@@ -118,7 +144,7 @@ func (st *Postgres) GetProject(user string, id int) (Project, error) {
 		// should always be the same.
 		err := rows.Scan(&p.ID, &p.Name, &desc, &p.Permissions,
 			&p.User.Email, &p.User.Name, &p.Group.Name,
-			&gr.URL, &gr.Branch)
+			&gr.URL, &gr.Branch, &gr.ProjectID)
 		if err != nil {
 			logger.WithError(err).Debug("unable to scan row")
 			return p, err

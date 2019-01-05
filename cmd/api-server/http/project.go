@@ -41,6 +41,7 @@ func (srv *Server) handleCreateProject(rw http.ResponseWriter, req *http.Request
 		"project_id": proj.ID,
 	})
 
+	// TODO: attach user and group information as well
 	logger.Info("saving project")
 	err = srv.st.CreateProject(&proj)
 	if err != nil {
