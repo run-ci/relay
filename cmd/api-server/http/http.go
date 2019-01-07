@@ -76,8 +76,12 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 	r.Handle("/", chain(getRoot, setRequestID, logRequest)).
 		Methods(http.MethodGet)
 
-	r.Handle("/projects", chain(srv.handleCreateProject, setRequestID, logRequest)).
-		Methods(http.MethodPost)
+	r.Handle("/projects", chain(
+		srv.handleCreateProject,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodPost)
 
 	r.Handle("/projects", chain(
 		srv.handleGetProjects,

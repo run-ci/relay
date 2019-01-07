@@ -110,6 +110,13 @@ func TestPostProject(t *testing.T) {
 
 	srv := NewServer(":9001", send, st, "test")
 
+	r := mux.NewRouter()
+	r.Handle("/projects", chain(
+		srv.handleCreateProject, setRequestID, autoAuth))
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
 	proj := map[string]string{
 		"name":        "test-create-project",
 		"description": "A project for testing creation.",
@@ -120,13 +127,17 @@ func TestPostProject(t *testing.T) {
 		t.Fatalf("got error when marshaling request payload: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "http://test/projects", bytes.NewBuffer(payload))
-	req = req.WithContext(context.WithValue(context.Background(), keyReqID, "test"))
-	rw := httptest.NewRecorder()
+	// TODO: make this table driven
+	requrl := fmt.Sprintf("%v/projects", ts.URL)
+	req, err := http.NewRequest(http.MethodPost, requrl, bytes.NewBuffer(payload))
+	if err != nil {
+		t.Fatalf("error creating http request for test: %v", err)
+	}
 
-	srv.handleCreateProject(rw, req)
-
-	resp := rw.Result()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("error executing test against test server: %v", err)
+	}
 
 	if resp.StatusCode != http.StatusAccepted {
 		t.Fatalf("expected status %v, got %v", http.StatusAccepted, resp.StatusCode)

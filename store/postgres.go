@@ -39,16 +39,19 @@ func (st *Postgres) CreateProject(p *Project) error {
 	logger.Debug("saving project to postgres")
 
 	sqlinsert := `
-	INSERT INTO projects (name, description, user_email, group_name, permissions)
-	VALUES
-		($1, $2, $3, $4, $5)
+	INSERT INTO projects (name, description, permissions, user_email, group_name)
+	SELECT $1, $2, $3, $4, u.group_name
+	FROM users AS u
+	WHERE u.email = $5
 	RETURNING id;
 	`
 
-	// Using QueryRow because the insert is returning "count".
-	err := st.db.QueryRow(sqlinsert, p.Name, p.Description,
-		p.User.Email, p.Group.Name, p.Permissions,
-	).Scan(&p.ID)
+	// Using QueryRow because the insert is returning the ID.
+	err := st.db.QueryRow(sqlinsert, p.Name, p.Description, p.Permissions,
+		// Duplication is necessary here because the driver will get confused
+		// and infer two different types for the same parameter.
+		p.User.Email, p.User.Email).
+		Scan(&p.ID)
 
 	if err != nil {
 		logger.WithField("error", err).

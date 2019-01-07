@@ -14,7 +14,11 @@ import (
 
 func (srv *Server) handleCreateProject(rw http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(keyReqID).(string)
-	logger := logger.WithField("request_id", reqID)
+	reqSub := req.Context().Value(keyReqSub).(string)
+	logger := logger.WithFields(logrus.Fields{
+		"request_id":      reqID,
+		"request_subject": reqSub,
+	})
 
 	logger.Debug("reading request body")
 	buf, err := ioutil.ReadAll(req.Body)
@@ -41,7 +45,8 @@ func (srv *Server) handleCreateProject(rw http.ResponseWriter, req *http.Request
 		"project_id": proj.ID,
 	})
 
-	// TODO: attach user and group information as well
+	proj.User.Email = reqSub
+
 	logger.Info("saving project")
 	err = srv.st.CreateProject(&proj)
 	if err != nil {
@@ -51,25 +56,6 @@ func (srv *Server) handleCreateProject(rw http.ResponseWriter, req *http.Request
 		writeErrResp(rw, err, http.StatusInternalServerError)
 		return
 	}
-
-	// TODO: move this to a dedicated handler for creating remotes
-	// for _, remote := range proj.GitRemotes {
-	// 	msg := map[string]string{
-	// 		"op":     "create",
-	// 		"remote": remote.URL,
-	// 		"branch": remote.Branch,
-	// 	}
-	// 	rawmsg, err := json.Marshal(msg)
-	// 	if err != nil {
-	// 		logger.WithField("error", err).
-	// 			Warn("unable to marshal poller create message")
-	// 	} else {
-	// 		// Not being able to send to the poller is not enough to cause the
-	// 		// request to fail. For this reason, we should try as hard as possible
-	// 		// to send the request.
-	// 		go sendWithBackoff(logger, srv.pollch, rawmsg)
-	// 	}
-	// }
 
 	buf, err = json.Marshal(proj)
 	if err != nil {
