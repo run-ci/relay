@@ -11,3 +11,6 @@ export RELAY_POSTGRES_HREF=store:5432 # This is the compose service
 export RELAY_POSTGRES_SSL=disable
 
 export RELAY_NATS_URL=nats://queue:4222
+
+export POLLER_NATS_URL=$RELAY_NATS_URL
+export POLLER_LOG_LEVEL=debug

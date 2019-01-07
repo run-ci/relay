@@ -39,16 +39,19 @@ func (st *Postgres) CreateProject(p *Project) error {
 	logger.Debug("saving project to postgres")
 
 	sqlinsert := `
-	INSERT INTO projects (name, description, user_email, group_name, permissions)
-	VALUES
-		($1, $2, $3, $4, $5)
+	INSERT INTO projects (name, description, permissions, user_email, group_name)
+	SELECT $1, $2, $3, $4, u.group_name
+	FROM users AS u
+	WHERE u.email = $5
 	RETURNING id;
 	`
 
-	// Using QueryRow because the insert is returning "count".
-	err := st.db.QueryRow(sqlinsert, p.Name, p.Description,
-		p.User.Email, p.Group.Name, p.Permissions,
-	).Scan(&p.ID)
+	// Using QueryRow because the insert is returning the ID.
+	err := st.db.QueryRow(sqlinsert, p.Name, p.Description, p.Permissions,
+		// Duplication is necessary here because the driver will get confused
+		// and infer two different types for the same parameter.
+		p.User.Email, p.User.Email).
+		Scan(&p.ID)
 
 	if err != nil {
 		logger.WithField("error", err).
@@ -58,12 +61,38 @@ func (st *Postgres) CreateProject(p *Project) error {
 }
 
 // CreateGitRemote stores the passed in GitRemote in Postgres.
-func (st *Postgres) CreateGitRemote(r *GitRemote) error {
+func (st *Postgres) CreateGitRemote(user string, r *GitRemote) error {
 	logger := logger.WithFields(logrus.Fields{
-		"url":    r.URL,
-		"branch": r.Branch,
+		"url":        r.URL,
+		"branch":     r.Branch,
+		"project_id": r.ProjectID,
 	})
 	logger.Debug("saving remote to postgres")
+
+	// It's enough to just check the group here because if the
+	// user email matches then the group name must also match.
+	authq := `
+	SELECT COUNT(*)
+	FROM projects
+	INNER JOIN users
+	ON users.group_name = projects.group_name
+	WHERE users.email = $1
+	AND projects.id = $2;
+	`
+
+	var count int
+	err := st.db.QueryRow(authq, user, r.ProjectID).Scan(&count)
+	if err != nil {
+		// This should always return a row, even if the row says
+		// there's no users matching the criteria.
+		logger.WithError(err).Debug("unable to query for auth count")
+		return err
+	}
+
+	if count < 1 {
+		logger.WithError(ErrProjectNotFound).Error("unable to find project for user")
+		return ErrProjectNotFound
+	}
 
 	sqlinsert := `
 	INSERT INTO git_remotes (url, branch, project_id)
@@ -71,13 +100,44 @@ func (st *Postgres) CreateGitRemote(r *GitRemote) error {
 		($1, $2, $3)
 	`
 
-	_, err := st.db.Exec(sqlinsert, r.URL, r.Branch, r.ProjectID)
+	_, err = st.db.Exec(sqlinsert, r.URL, r.Branch, r.ProjectID)
 
 	if err != nil {
-		logger.WithField("error", err).
-			Debug("unable to create project")
+		logger.WithError(err).Debug("unable to create git remote")
 	}
 	return err
+}
+
+// GetGitRemote retrieves the remote for the project with the given ID, using the
+// url and branch.
+func (st *Postgres) GetGitRemote(user string, pid int, url string, branch string) (GitRemote, error) {
+	logger := logger.WithField("project_id", pid)
+	logger.Debug("getting git remote from postgres")
+
+	sqlq := `
+	SELECT gr.url, gr.branch, gr.project_id
+	FROM git_remotes AS gr
+	INNER JOIN projects AS proj
+	ON gr.project_id = proj.id
+	INNER JOIN users AS u
+	ON proj.user_email = u.email
+	INNER JOIN groups AS g
+	ON u.group_name = g.name
+	WHERE (u.email = $1
+		OR u.group_name = proj.group_name AND (proj.permissions & 128) != 0
+		OR (proj.permissions & 16) != 0)
+		AND proj.id = $2
+		AND gr.url = $3
+		AND gr.branch = $4;
+	`
+
+	var remote GitRemote
+	err := st.db.QueryRow(sqlq, user, pid, url, branch).Scan(&remote.URL, &remote.Branch, &remote.ProjectID)
+	if err != nil {
+		logger.WithError(err).Debug("unable to query database")
+	}
+
+	return remote, err
 }
 
 // GetProject retrieves the Project with the given id from postgres. If
@@ -89,7 +149,7 @@ func (st *Postgres) GetProject(user string, id int) (Project, error) {
 	sqlq := `
 	SELECT proj.id, proj.name, proj.description, proj.permissions,
 		u.email, u.name, g.name,
-		gr.url, gr.branch
+		gr.url, gr.branch, gr.project_id
 	FROM projects AS proj
 	INNER JOIN git_remotes AS gr
 	ON proj.id = gr.project_id
@@ -119,7 +179,7 @@ func (st *Postgres) GetProject(user string, id int) (Project, error) {
 		// should always be the same.
 		err := rows.Scan(&p.ID, &p.Name, &desc, &p.Permissions,
 			&p.User.Email, &p.User.Name, &p.Group.Name,
-			&gr.URL, &gr.Branch)
+			&gr.URL, &gr.Branch, &gr.ProjectID)
 		if err != nil {
 			logger.WithError(err).Debug("unable to scan row")
 			return p, err

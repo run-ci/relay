@@ -93,7 +93,7 @@ func main() {
 			fmt.Printf("inserting git remote %v#%v\n", remote.URL, remote.Branch)
 
 			remote.ProjectID = proj.ID
-			err := db.CreateGitRemote(&remote)
+			err := db.CreateGitRemote(proj.User.Email, &remote)
 			if err != nil {
 				fmt.Printf("error inserting git remote: %v\n", err)
 				os.Exit(1)

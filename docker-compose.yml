@@ -45,3 +45,10 @@ services:
     - POSTGRES_USER
     - POSTGRES_PASSWORD
     - POSTGRES_DB
+  poller:
+    image: runci/poller
+    environment:
+    - POLLER_NATS_URL
+    - POLLER_LOG_LEVEL
+    ports:
+    - "9002:9002"

@@ -36,10 +36,13 @@ type apiStore interface {
 	GetRun(user string, pid, id int) (store.Run, error)
 	GetStep(user string, id int) (store.Step, error)
 	GetTask(user string, id int) (store.Task, error)
+	GetGitRemote(user string, pid int, url string, branch string) (store.GitRemote, error)
 
 	CreateProject(*store.Project) error
 	GetProject(user string, id int) (store.Project, error)
 	GetProjects(user string) ([]store.Project, error)
+
+	CreateGitRemote(user string, remote *store.GitRemote) error
 
 	Authenticate(user, pass string) error
 }
@@ -73,8 +76,12 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 	r.Handle("/", chain(getRoot, setRequestID, logRequest)).
 		Methods(http.MethodGet)
 
-	r.Handle("/projects", chain(srv.handleCreateProject, setRequestID, logRequest)).
-		Methods(http.MethodPost)
+	r.Handle("/projects", chain(
+		srv.handleCreateProject,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodPost)
 
 	r.Handle("/projects", chain(
 		srv.handleGetProjects,
@@ -92,7 +99,19 @@ func NewServer(addr string, pollch chan<- []byte, st apiStore, jwtsecret string)
 
 	// TODO: delete projects
 
-	// TODO: create git remote for project
+	r.Handle("/projects/{project_id}/git_remotes", chain(
+		srv.handleCreateGitRemote,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodPost)
+
+	r.Handle("/projects/{project_id}/git_remotes/{id}", chain(
+		srv.handleGetGitRemote,
+		setRequestID,
+		logRequest,
+		srv.checkAuth,
+	)).Methods(http.MethodGet)
 
 	r.Handle("/projects/{project_id}/pipelines", chain(
 		srv.handleGetPipelines,
