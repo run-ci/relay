@@ -7,7 +7,6 @@ require (
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/circonus-labs/circonus-gometrics v2.2.5+incompatible // indirect
 	github.com/circonus-labs/circonusllhist v0.1.3 // indirect
-	github.com/coreos/etcd v3.3.10+incompatible
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/fsouza/go-dockerclient v1.3.1
 	github.com/go-ldap/ldap v2.5.1+incompatible // indirect
@@ -35,12 +34,13 @@ require (
 	github.com/prometheus/common v0.0.0-20181126121408-4724e9255275 // indirect
 	github.com/prometheus/procfs v0.0.0-20181129180645-aa55a523dc0a // indirect
 	github.com/run-ci/run v0.0.0-20181110223538-7bb05776db96
+	github.com/run-ci/runlog v0.0.1
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
-	github.com/sirupsen/logrus v1.2.0
-	github.com/spf13/pflag v1.0.3
+	github.com/sirupsen/logrus v1.3.0
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
 	golang.org/x/crypto v0.0.0-20180904163835-0709b304e793
 	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
+	golang.org/x/sys v0.0.0-20180906133057-8cf3aee42992 // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/ldap.v2 v2.5.1 // indirect
 	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect

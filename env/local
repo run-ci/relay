@@ -14,3 +14,8 @@ export RELAY_NATS_URL=nats://queue:4222
 
 export POLLER_NATS_URL=$RELAY_NATS_URL
 export POLLER_LOG_LEVEL=debug
+
+export RUNLOG_LOGS_DIR=/tmp/runlog/logs
+export RUNLOG_CAPATH=/tmp/devcerts/rootCA.pem
+export RUNLOG_CERTPATH=/tmp/devcerts/runlog.crt
+export RUNLOG_KEYPATH=/tmp/devcerts/runlog.key

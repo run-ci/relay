@@ -12,6 +12,7 @@ import (
 	tasklog "github.com/run-ci/relay/cmd/runlet/log"
 	"github.com/run-ci/relay/store"
 	"github.com/run-ci/run/pkg/run"
+	"github.com/run-ci/runlog"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -219,8 +220,25 @@ func main() {
 						Errorf("unable to create file log at %v, won't log there", logerrPath)
 				}
 
-				outchain := tasklog.Middleware(os.Stdout.Write).Chain(logout)
-				errchain := tasklog.Middleware(os.Stdout.Write).Chain(logerr)
+				runlogClient := &runlog.Client{
+					URL:      "runlog:9999",
+					CertPath: "/tmp/devcerts/runlog.crt",
+					KeyPath:  "/tmp/devcerts/runlog.key",
+					CAPath:   "/tmp/devcerts/rootCA.pem",
+					TaskID:   uint32(t.ID),
+				}
+
+				err = runlogClient.Connect()
+				if err != nil {
+					logger.WithError(err).Errorf("unable to connect to runlog: %v", err)
+				}
+
+				outchain := tasklog.Middleware(os.Stdout.Write).
+					Chain(logout).
+					Chain(runlogClient)
+				errchain := tasklog.Middleware(os.Stdout.Write).
+					Chain(logerr).
+					Chain(runlogClient)
 
 				spec := run.ContainerSpec{
 					Imgref: task.Image,

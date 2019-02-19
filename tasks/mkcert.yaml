@@ -1,0 +1,18 @@
+---
+summary: Generate certificates for local development.
+
+description: |
+  Runlog uses certificate based authentication. This means that in
+  order for it to be useful, there needs to be some PKI generated
+  for it. The easiest way to generate this for local development
+  is using `mkcert`.
+
+image: runci/mkcert
+
+command: mkcert -cert-file ./$CAROOT/runlog.crt -key-file ./$CAROOT/runlog.key runlog localhost 127.0.0.1 && chmod 666 ./$CAROOT/*
+
+arguments:
+  CAROOT:
+    description: The directory where the CA should be created.
+    default: ./devcerts
+

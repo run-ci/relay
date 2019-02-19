@@ -30,6 +30,7 @@ services:
     volumes:
     - "/var/run/docker.sock:/var/run/docker.sock"
     - "./build/runlet:/bin/runlet"
+    - "./devcerts:/tmp/devcerts"
     command: /bin/runlet
   queue:
     image: nats
@@ -52,3 +53,15 @@ services:
     - POLLER_LOG_LEVEL
     ports:
     - "9002:9002"
+  runlog:
+    image: runci/runlog
+    environment:
+    - RUNLOG_LOGS_DIR
+    - RUNLOG_CAPATH
+    - RUNLOG_CERTPATH
+    - RUNLOG_KEYPATH
+    ports:
+    - "9999:9999"
+    volumes:
+    - "./devcerts:/tmp/devcerts"
+    - "./logs:/tmp/runlog/logs"
